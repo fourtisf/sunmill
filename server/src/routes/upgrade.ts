@@ -105,7 +105,14 @@ export default async function upgradeRoutes(app: FastifyInstance) {
           target: 'machineSlot', machine: def.id, slots: def.slots + state.extraSlots,
         }, { coins: -BigInt(quote.next.coins), hay: `-${quote.next.hay}` });
 
-        return { notice: { message: `${def.name} now runs ${def.slots + state.extraSlots} jobs`, icon: 'coin' } };
+        return {
+          notice: {
+            code: 'machine_slot_added',
+            message: `${def.name} now runs ${def.slots + state.extraSlots} jobs`,
+            params: { machine: def.id, jobs: def.slots + state.extraSlots } as Record<string, string | number>,
+            icon: 'coin',
+          },
+        };
       }
 
       const def = requirePenUnlocked(level, input.pen);
@@ -127,7 +134,14 @@ export default async function upgradeRoutes(app: FastifyInstance) {
         target: 'penAnimal', pen: def.id, animals: state.animals.length,
       }, { coins: -BigInt(quote.next.coins), hay: `-${quote.next.hay}` });
 
-      return { notice: { message: `A new arrival at the ${def.name.toLowerCase()}`, icon: def.out } };
+      return {
+        notice: {
+          code: 'animal_added',
+          message: `A new arrival at the ${def.name.toLowerCase()}`,
+          params: { pen: def.id } as Record<string, string | number>,
+          icon: def.out,
+        },
+      };
 
       async function spend(coins: number, hay: string) {
         if (ctx.state.farm.coins < BigInt(coins)) throw errors.notEnoughCoins();

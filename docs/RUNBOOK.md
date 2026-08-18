@@ -47,6 +47,7 @@ Fill in `.env`. The ones that matter in production:
 | `TIME_SCALE` | See README. **Confirm with ALFA before locking.** |
 | `HAY_ONCHAIN_ENABLED` | Leave `false` until emission and sinks are signed off. |
 | `TREASURY_PRIVATE_KEY` | Server-side only. Never in the client bundle, never in git. |
+| `ADMIN_TOKEN` | Min 24 chars. Second factor for `/api/admin`; unset means those routes do not exist. |
 
 `.env` is gitignored. Keep it `chmod 600` and owned by the deploy user.
 
@@ -198,10 +199,50 @@ Do not set `HAY_ONCHAIN_ENABLED=true` until all of these hold:
 - [ ] `HAY_WITHDRAW_DAILY_CAP` and `HAY_WITHDRAW_REVIEW_THRESHOLD` are set to
       agreed values.
 - [ ] `CHAIN_MIN_CONFIRMATIONS` matches Robinhood Chain's finality guidance.
-- [ ] Withdrawals in `review` status have an operator process behind them —
-      the API deducts the game hay and records the row, but deliberately does
-      not broadcast those.
+- [ ] Someone owns the `review` queue. The API deducts the game hay and records
+      the row but deliberately does not broadcast it; an operator releases or
+      rejects it through `/api/admin/withdrawals` (see §10).
 - [ ] The flow has been exercised end to end on a testnet.
 
 Off-chain `hay` works with the flag off, so there is no pressure to turn it on
 before the economy is settled.
+
+---
+
+## 10. Operator tools
+
+Withdrawals at or above `HAY_WITHDRAW_REVIEW_THRESHOLD` are held: the player's
+game hay is already debited and the transfer row exists, but nothing is
+broadcast. A human decides.
+
+Access needs **both** halves, so a stolen session alone cannot move treasury
+funds:
+
+1. The user row must have `isAdmin = true`.
+2. The request must carry `X-Admin-Token: $ADMIN_TOKEN`.
+
+With `ADMIN_TOKEN` unset the routes 404 — that is the safe default, and the
+right state for a deployment with nobody on call.
+
+```bash
+# grant an operator (once, deliberately)
+psql "$DATABASE_URL" -c "UPDATE \"User\" SET \"isAdmin\" = true WHERE wallet = '0x…';"
+
+# what is waiting
+curl -s https://sunmill.example.com/api/admin/withdrawals \
+  -H "X-Admin-Token: $ADMIN_TOKEN" -b cookies.txt
+
+# send it
+curl -s -X POST https://sunmill.example.com/api/admin/withdrawals/release \
+  -H "X-Admin-Token: $ADMIN_TOKEN" -H 'content-type: application/json' -b cookies.txt \
+  -d '{"transferId":"…"}'
+
+# refuse it — the player's $HAY goes back, with a Ledger row recording why
+curl -s -X POST https://sunmill.example.com/api/admin/withdrawals/reject \
+  -H "X-Admin-Token: $ADMIN_TOKEN" -H 'content-type: application/json' -b cookies.txt \
+  -d '{"transferId":"…","reason":"failed review"}'
+```
+
+A release claims the row before broadcasting, so two operators cannot both send
+the same transfer. A failed broadcast puts it back in `review` to retry rather
+than losing it.

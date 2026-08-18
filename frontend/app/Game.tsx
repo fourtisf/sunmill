@@ -33,20 +33,21 @@ export default function Game() {
         <div id="dock"><div className="dock-inner" id="dockInner" /></div>
         <div id="toasts" />
       </div>
+      <div id="joystick" />
       <div id="scrim"><div className="modal panel" id="modal" /></div>
       <div id="lvlup"><div className="lu" id="luBody" /></div>
       <div id="intro">
         <div className="icard panel">
           <div className="logo">SUNMILL</div>
-          <div className="tl">Farm &amp; Craft Tycoon</div>
-          <p>A production-chain farm on Robinhood Chain. Grow crops, feed animals, run the machines, fill the truck.</p>
+          <div className="tl" id="introTagline">Farm &amp; Craft Tycoon</div>
+          <p id="introBlurb">A production-chain farm on Robinhood Chain. Grow crops, feed animals, run the machines, fill the truck.</p>
           <div className="hint">
             <span className="d" />
-            <span><b>Sweep to plant.</b> Pick a seed below, then drag across your fields in one motion.</span>
+            <span id="introHint1"><b>Sweep to plant.</b> Pick a seed below, then drag across your fields in one motion.</span>
           </div>
           <div className="hint">
             <span className="d" />
-            <span><b>Tap anything ready.</b> Golden glow means harvest, collect, or claim.</span>
+            <span id="introHint2"><b>Tap anything ready.</b> Golden glow means harvest, collect, or claim.</span>
           </div>
           <div className="hint">
             <span className="d" />

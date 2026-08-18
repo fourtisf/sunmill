@@ -66,7 +66,15 @@ export default async function fieldRoutes(app: FastifyInstance) {
       await bump(ctx, 'plant', planted.length);
 
       if (brokeEarly) {
-        return { notice: { message: `Only had coins for ${planted.length}`, icon: body.crop, bad: true } };
+        return {
+          notice: {
+            code: 'planted_partial',
+            message: `Only had coins for ${planted.length}`,
+            params: { n: planted.length },
+            icon: body.crop,
+            bad: true,
+          },
+        };
       }
       return undefined;
     });
@@ -108,7 +116,14 @@ export default async function fieldRoutes(app: FastifyInstance) {
       await bump(ctx, 'harvest');
 
       if (got < yieldQty) {
-        return { notice: { message: 'Silo nearly full — sell or upgrade', icon: cropId, bad: true } };
+        return {
+          notice: {
+            code: 'silo_nearly_full',
+            message: 'Silo nearly full — sell or upgrade',
+            icon: cropId,
+            bad: true,
+          },
+        };
       }
       return undefined;
     });

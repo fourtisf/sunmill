@@ -53,6 +53,8 @@ export default async function dailyRoutes(app: FastifyInstance) {
       });
 
       // Finishing all three pays a bonus on top.
+      let code = 'task_claimed';
+      let params: Record<string, string | number> = { coins: template.coins };
       let message = `Task done — +${template.coins} coins`;
       if (allTasksClaimed(ctx.state.tasks)) {
         const bonus = DAILY.allDoneBonus;
@@ -62,11 +64,13 @@ export default async function dailyRoutes(app: FastifyInstance) {
         await ledger(ctx, 'task_bonus', { day, tasks: ctx.state.tasks.length }, {
           coins: BigInt(bonus.coins), hay: bonus.hay, xp: bonus.xp,
         });
+        code = 'tasks_all_done';
+        params = { coins: template.coins + bonus.coins, hay: bonus.hay };
         message = `All tasks done — +${template.coins + bonus.coins} coins and ${bonus.hay} $HAY bonus`;
       }
 
       await saveFarm(ctx);
-      return { notice: { message, icon: 'coin' } };
+      return { notice: { code, message, params, icon: 'coin' } };
     });
   });
 
@@ -102,7 +106,9 @@ export default async function dailyRoutes(app: FastifyInstance) {
 
       return {
         notice: {
+          code: 'streak_claimed',
           message: `Day ${state.day} — +${state.coins} coins, +${state.hay} $HAY`,
+          params: { day: state.day, coins: state.coins, hay: state.hay },
           icon: 'coin',
         },
       };

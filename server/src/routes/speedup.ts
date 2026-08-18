@@ -139,7 +139,7 @@ export default async function speedupRoutes(app: FastifyInstance) {
       }
 
       await saveFarm(ctx);
-      return { notice: { message: 'Finished it early', icon: 'hay' } };
+      return { notice: { code: 'sped_up', message: 'Finished it early', icon: 'hay' } };
     });
   });
 

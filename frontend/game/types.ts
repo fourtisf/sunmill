@@ -50,6 +50,22 @@ export interface PenConfig {
   roof?: string;
 }
 
+export interface TaskTemplate {
+  key: string;
+  target: number;
+  lvl: number;
+  coins: number;
+  hay: string;
+  xp: number;
+}
+
+export interface UpgradeRules {
+  maxExtra: number;
+  levels: number[];
+  coins: number[];
+  hay: string[];
+}
+
 export interface GameConfig {
   timeScale: number;
   items: Record<string, ItemConfig>;
@@ -58,13 +74,23 @@ export interface GameConfig {
   pens: PenConfig[];
   fieldOpen: number[];
   maxTiles: number;
+  maxLevelCurve: number;
   levelUpText: string[];
   xpCurve: number[];
+  speedup: { hayPerMinute: number; minHay: string; minRemainingSec: number };
+  upgrades: { machineSlot: UpgradeRules; penAnimal: UpgradeRules };
+  tasks: TaskTemplate[];
+  daily: {
+    taskCount: number;
+    allDoneBonus: { coins: number; hay: string; xp: number };
+    streakCoins: number[];
+    streakHay: string[];
+  };
   expand: {
     silo: { coinsPerCap: number; hay: string; step: number; max: number };
     barn: { coinsPerCap: number; hay: string; step: number; max: number };
   };
-  orders: { boardSize: number };
+  orders: { boardSize: number; ttlSeconds: number };
   market: { refreshSeconds: number };
   features: { hayOnChain: boolean; devLogin: boolean };
 }
@@ -92,6 +118,7 @@ export interface MachineView {
   jobs: JobView[];
   done: Record<string, number>;
   slots: number;
+  extraSlots: number;
   open: boolean;
 }
 
@@ -115,11 +142,73 @@ export interface OrderView {
   xp: number;
   hay: string;
   canFill: boolean;
+  expiresAt: string | null;
+}
+
+export interface TaskView {
+  kind: string;
+  target: number;
+  progress: number;
+  done: boolean;
+  claimed: boolean;
+  coins: number;
+  hay: string;
+  xp: number;
+}
+
+export interface StreakView {
+  day: number;
+  claimedToday: boolean;
+  coins: number;
+  hay: string;
+  nextInSec: number;
+}
+
+export interface AwayReport {
+  awaySec: number;
+  cropsReady: number;
+  goodsReady: number;
+  animalsReady: number;
+  waiting: Array<{ item: string; qty: number }>;
+}
+
+export interface SpeedUpQuote {
+  serverTime: string;
+  tiles: Array<{ index: number; remainingSec: number; hay: string }>;
+  machines: Array<{ machine: string; remainingSec: number; hay: string }>;
+  pens: Array<{ pen: string; remainingSec: number; hay: string }>;
+}
+
+export interface UpgradeQuote {
+  bought: number;
+  max: number;
+  next: { level: number; coins: number; hay: string } | null;
+}
+
+export interface UpgradeBoard {
+  level: number;
+  machineSlots: Array<{ machine: string; slots: number } & UpgradeQuote>;
+  penAnimals: Array<{ pen: string; animals: number } & UpgradeQuote>;
+}
+
+export interface LeaderboardRow {
+  rank: number;
+  name: string | null;
+  farmName: string | null;
+  level: number;
+  xp: number;
+  you?: boolean;
+}
+
+export interface Leaderboard {
+  top: LeaderboardRow[];
+  you: LeaderboardRow | null;
 }
 
 export interface Snapshot {
   serverTime: string;
   timeScale: number;
+  player: { name: string | null; farmName: string | null };
   farm: {
     id: string;
     coins: string;
@@ -138,8 +227,18 @@ export interface Snapshot {
     pens: PenView[];
   };
   orders: OrderView[];
+  tasks: TaskView[];
+  streak: StreakView;
+  tutorial: { step: number; done: boolean };
   levelsGained?: number[];
-  notice?: { message: string; icon?: string; bad?: boolean };
+  away?: AwayReport;
+  notice?: {
+    code?: string;
+    message: string;
+    params?: Record<string, string | number>;
+    icon?: string;
+    bad?: boolean;
+  };
 }
 
 export interface Listing {

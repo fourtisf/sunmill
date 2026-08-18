@@ -114,9 +114,11 @@ export default async function hayRoutes(app: FastifyInstance) {
         });
         return {
           notice: {
+            code: needsReview ? 'hay_withdraw_review' : 'hay_withdraw_sent',
             message: needsReview
               ? 'Withdrawal received — held for review'
               : 'Withdrawal submitted',
+            params: { amount },
             icon: 'hay',
           },
         };
@@ -148,7 +150,14 @@ export default async function hayRoutes(app: FastifyInstance) {
         await ledger(ctx, 'hay_withdraw', {
           transferId, refunded: true, reason: message.slice(0, 500),
         }, { hay: amount });
-        return { notice: { message: 'Withdrawal failed — $HAY returned', icon: 'hay', bad: true } };
+        return {
+          notice: {
+            code: 'hay_withdraw_failed',
+            message: 'Withdrawal failed — $HAY returned',
+            icon: 'hay',
+            bad: true,
+          },
+        };
       });
       return { status: 'failed', transferId, error: 'Withdrawal failed, your $HAY was returned', snapshot: refunded };
     }
@@ -196,7 +205,9 @@ export default async function hayRoutes(app: FastifyInstance) {
         await ledger(ctx, 'hay_deposit', {
           txHash, wallet: user.wallet, amount, confirmations: check.confirmations,
         }, { hay: amount });
-        return { notice: { message: `Deposited ${amount} $HAY`, icon: 'hay' } };
+        return {
+          notice: { code: 'hay_deposited', message: `Deposited ${amount} $HAY`, params: { amount }, icon: 'hay' },
+        };
       });
       return { status: 'confirmed', amount, snapshot };
     } catch (err) {

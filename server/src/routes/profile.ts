@@ -51,7 +51,7 @@ export default async function profileRoutes(app: FastifyInstance) {
         });
       }
       if (body.name) ctx.state.playerName = body.name;
-      return { notice: { message: 'Saved', icon: 'coin' } };
+      return { notice: { code: 'profile_saved', message: 'Saved', icon: 'coin' } };
     });
   });
 

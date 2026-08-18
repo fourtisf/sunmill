@@ -261,8 +261,18 @@ export interface Snapshot {
   levelsGained?: number[];
   /** Present only on the first read after a real absence. */
   away?: AwayReport;
-  /** Anything the server wants the client to say out loud. */
-  notice?: { message: string; icon?: string; bad?: boolean };
+  /**
+   * Anything the server wants the client to say out loud. `code` is the stable
+   * identifier the client localises; `message` is the English rendering, kept
+   * so non-UI consumers (scripts, logs) still read something meaningful.
+   */
+  notice?: {
+    code: string;
+    message: string;
+    params?: Record<string, string | number>;
+    icon?: string;
+    bad?: boolean;
+  };
 }
 
 export function buildSnapshot(

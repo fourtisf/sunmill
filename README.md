@@ -14,6 +14,13 @@ prototype/  the original single-file prototype (reference only)
 docs/       deployment runbook
 ```
 
+**The loop:** plant → grow → harvest → craft through four machines → tend three
+pens → deliver orders → buy and sell at the market → expand. On top of that:
+pay $HAY to skip a timer, three daily tasks with a guide that walks you through
+them, a seven-day login streak, a "while you were away" summary, capacity
+upgrades to level 20, player names on a leaderboard, a virtual joystick, a
+seven-step tutorial, procedural audio, and English/Indonesian throughout.
+
 ---
 
 ## What "server-authoritative" means here
@@ -62,7 +69,8 @@ Open http://localhost:3000. Outside production the login screen offers
 ### Checks
 
 ```bash
-npm test                      # 34 unit tests: resolver, XP curve, capacity maths
+npm test                      # 60 unit tests: resolver, XP curve, capacity maths,
+                              # daily tasks, streak, away summary, speed-up pricing
 npm run typecheck             # both workspaces
 
 # 59 integration tests against a live Postgres + Redis: the whole production
@@ -72,10 +80,10 @@ npm run typecheck             # both workspaces
 # replayed nonce, a forged session cookie, a deposit confirmed five times).
 npm run test:integration --workspace=server
 
-node server/scripts/smoke.mjs             # 54 end-to-end API checks, real timers
+node server/scripts/smoke.mjs             # 65 end-to-end API checks, real timers
 node server/scripts/bench-resolve.ts      # resolver throughput, no DB
 node server/scripts/loadtest.mjs          # concurrent GET /api/farm
-npm i -D playwright && node frontend/scripts/browser-smoke.mjs   # 19 checks in a real browser
+npm i -D playwright && node frontend/scripts/browser-smoke.mjs   # 26 checks in a real browser
 ```
 
 ---
@@ -104,12 +112,32 @@ re-times work in progress.
 
 ---
 
+## The daily loop
+
+Three tasks a day, drawn deterministically per farm per day so refreshing
+cannot reroll into easier ones. Progress is bumped **only from inside the
+action routes** — a client cannot advance its own task, and following the guide
+is literally playing the game. Finishing all three pays a bonus.
+
+Tapping **Show me** on a task hands it to the guide engine
+(`frontend/game/guide.ts`), which spotlights the real thing to touch — the ripe
+crop, the machine with goods waiting — and keeps guiding, with a live count,
+until the task is actually complete and claimed. The same engine runs the
+seven-step tutorial for a new farm; its progress is stored server-side, so it
+never restarts after a reload.
+
+Alongside that: a seven-day login streak that survives one missed day, orders
+that expire, and a "while you were away" card summarising what finished during
+a real absence — the server already knows, because readiness is derived from
+timestamps.
+
 ## $HAY
 
 Two balances, as HANDOFF §7 specifies:
 
-- **In-game `hay`** — off-chain, in `Farm.hay`. What orders and level-ups grant
-  and what expansions cost. Fully working, no chain involved.
+- **In-game `hay`** — off-chain, in `Farm.hay`. What orders, level-ups, tasks
+  and the streak grant, and what expansions, capacity upgrades and **speed-ups**
+  cost. Fully working, no chain involved.
 - **On-chain `$HAY`** — real tokens, moved only through explicit
   withdraw/deposit flows.
 
@@ -124,6 +152,19 @@ run with the flag on and the chain layer stubbed — including confirming the
 same deposit five times concurrently, which credits exactly once.
 
 **Do not enable the flag until ALFA signs off on emission and sinks.**
+
+### The sink
+
+`POST /api/speedup` pays $HAY to finish a timer now — a crop, a whole machine
+queue, or a pen. It is the main demand-side for the token: before it existed,
+orders and level-ups granted hay and only two expansions ever consumed any, so
+balances could only grow. The price is derived server-side from the time
+actually remaining (`SPEEDUP.hayPerMinute`, currently `0.15`), and
+`/api/speedup/quote` lets the client show it without re-implementing the
+formula. Capacity upgrades cost hay too, so the late game keeps draining it.
+
+**The rate is a placeholder.** It is one number in `gamedata.ts` and needs the
+same economy pass as `TIME_SCALE`.
 
 ---
 
@@ -146,6 +187,12 @@ behind a per-user Redis token bucket.
 | `GET /api/orders` · `POST /api/orders/deliver` · `/skip` | Board cached in Redis; rewards re-derived from config at delivery. |
 | `GET /api/market` · `POST /api/market/buy` · `/sell` | Listings cached in Redis; prices re-checked against the legal band on every buy. |
 | `POST /api/expand` | +20 silo or barn capacity for coins and $HAY. |
+| `GET /api/speedup/quote` · `POST /api/speedup` | Price and pay to finish a timer now — the $HAY sink. |
+| `GET /api/upgrade` · `POST /api/upgrade` | Extra machine slots and extra animals, levels 11–18. |
+| `POST /api/tasks/claim` · `POST /api/daily/claim` | Daily task rewards and the login streak. |
+| `POST /api/profile` · `GET /api/leaderboard` | Player and farm name; ranking by level. |
+| `POST /api/tutorial` | Remembers how far through the guide the player got. |
+| `GET /api/admin/withdrawals` · `/release` · `/reject` | Operator tools for held withdrawals. |
 | `GET /api/hay/status` · `POST /api/hay/withdraw` · `/deposit/confirm` | Behind the feature flag. |
 
 ### What the server enforces
@@ -175,6 +222,29 @@ The resolver is nowhere near the bottleneck; the database round trips are.
 Deployment sizing is in `docs/RUNBOOK.md`.
 
 ---
+
+## Late game
+
+The prototype ran out of things to give at level 10. The curve now runs to
+level 20 and 24 fields, and levels 11–18 sell extra machine slots and extra
+animals for coins **and** $HAY.
+
+Late progression is deliberately **scale, not new content**: the art engine is
+fixed (see below), so every item that exists has a sprite and a new one would
+not. More fields, more slots, more animals are all things the existing sprites
+already draw.
+
+## Language, sound and controls
+
+- **English and Indonesian**, detected from the browser and switchable from the
+  profile panel. Server notices and refusals travel as stable codes (`sold`,
+  `insufficient_coins`) rather than prose, so they localise on the client.
+- **Procedural audio** — synthesised with WebAudio for the same reason the art
+  is procedural: no asset files, no cache-busting, a few hundred bytes of code
+  instead of megabytes of samples. Muted from the profile panel.
+- **A virtual joystick** walks the farmer with the camera following. It is DOM
+  and CSS only and claims only pointers that start inside it, so tapping the
+  world is untouched.
 
 ## The art engine is off limits
 

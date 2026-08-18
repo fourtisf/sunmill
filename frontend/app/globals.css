@@ -329,3 +329,131 @@ body{
   .seed canvas{width:40px;height:40px}
   .mhead h2{font-size:17px}
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Additions beyond the prototype: joystick, guide overlay, task
+   and upgrade panels, the away card, and the settings row.
+   The prototype's own rules above are untouched.
+   ───────────────────────────────────────────────────────────── */
+
+/* ---------- virtual joystick ---------- */
+#joystick{
+  position:fixed; left:calc(16px + env(safe-area-inset-left)); bottom:calc(152px + env(safe-area-inset-bottom));
+  width:132px; height:132px; z-index:40; touch-action:none; user-select:none;
+  display:grid; place-items:center; opacity:.62; transition:opacity .18s ease;
+}
+#joystick.on{opacity:.95}
+#joystick .jk-base{
+  width:112px; height:112px; border-radius:50%;
+  background:radial-gradient(circle at 50% 42%, rgba(255,248,228,.55), rgba(184,128,74,.32));
+  border:3px solid rgba(92,54,24,.45);
+  box-shadow:inset 0 3px 10px rgba(62,35,13,.28), 0 4px 12px rgba(30,20,8,.22);
+  display:grid; place-items:center;
+}
+#joystick .jk-knob{
+  width:54px; height:54px; border-radius:50%;
+  background:linear-gradient(#FFE9A8,#D9A94A);
+  border:3px solid #8A5410;
+  box-shadow:0 3px 8px rgba(40,24,8,.35), inset 0 2px 4px rgba(255,255,255,.5);
+  transition:transform .04s linear;
+}
+@media (pointer:fine){ #joystick{opacity:.45} #joystick.on{opacity:.9} }
+
+/* ---------- guide / tutorial spotlight ---------- */
+#guide{position:fixed; inset:0; z-index:70; pointer-events:none; opacity:0; transition:opacity .2s ease}
+#guide.on{opacity:1}
+#guide .g-hole{
+  position:absolute; border-radius:18px;
+  box-shadow:0 0 0 9999px rgba(24,16,6,.58), 0 0 0 3px #FFD166, 0 0 22px 6px rgba(255,209,102,.55);
+  animation:gpulse 1.6s ease-in-out infinite;
+}
+@keyframes gpulse{
+  0%,100%{box-shadow:0 0 0 9999px rgba(24,16,6,.58), 0 0 0 3px #FFD166, 0 0 18px 4px rgba(255,209,102,.45)}
+  50%{box-shadow:0 0 0 9999px rgba(24,16,6,.58), 0 0 0 4px #FFE9A8, 0 0 30px 10px rgba(255,209,102,.7)}
+}
+#guide .g-card{
+  position:absolute; left:50%; transform:translateX(-50%);
+  width:min(420px, calc(100vw - 32px)); padding:16px 18px; pointer-events:auto;
+  text-align:center;
+}
+#guide .g-step{font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#A98A5E; margin-bottom:6px}
+#guide .g-text{font-size:16px; font-weight:600; color:#5C3618; line-height:1.45; margin-bottom:12px}
+#guide .g-stop{padding:8px 14px; font-size:13px}
+
+/* ---------- daily tasks ---------- */
+.task{
+  display:flex; align-items:center; gap:12px; padding:12px;
+  border-radius:14px; background:rgba(255,255,255,.55);
+  border:2px solid rgba(132,81,42,.22); margin-bottom:10px;
+}
+.task.done{border-color:rgba(93,174,46,.55); background:rgba(226,246,213,.7)}
+.task.claimed{opacity:.55}
+.task .t-body{flex:1; min-width:0}
+.task .t-title{font-weight:600; font-size:15px; color:#5C3618}
+.task .t-bar{height:8px; border-radius:5px; background:rgba(0,0,0,.14); overflow:hidden; margin-top:7px}
+.task .t-fill{height:100%; background:linear-gradient(#9BE05F,#3E8A1C); transition:width .25s ease}
+.task .t-meta{display:flex; gap:10px; align-items:center; margin-top:6px; font-size:12px; color:#8A6A42}
+.task .t-actions{display:flex; flex-direction:column; gap:6px; align-items:flex-end}
+.bonus-note{
+  margin:4px 2px 12px; padding:10px 12px; border-radius:12px;
+  background:rgba(255,233,168,.5); border:2px dashed rgba(184,128,30,.45);
+  font-size:13px; color:#7A5730; text-align:center; font-weight:600;
+}
+
+/* ---------- streak ---------- */
+.streak-row{display:flex; gap:6px; margin:2px 0 12px}
+.streak-day{
+  flex:1; aspect-ratio:1; border-radius:12px; display:grid; place-items:center;
+  background:rgba(255,255,255,.5); border:2px solid rgba(132,81,42,.22);
+  font-weight:800; font-size:13px; color:#8A6A42;
+}
+.streak-day.got{background:linear-gradient(#FFE9A8,#F0C355); border-color:#B8801E; color:#5C3618}
+.streak-day.now{border-color:#3E8A1C; box-shadow:0 0 0 3px rgba(93,174,46,.25)}
+
+/* ---------- leaderboard ---------- */
+.lb-row{
+  display:flex; align-items:center; gap:12px; padding:10px 12px;
+  border-radius:12px; margin-bottom:6px; background:rgba(255,255,255,.45);
+}
+.lb-row.you{background:rgba(255,233,168,.7); border:2px solid rgba(184,128,30,.5)}
+.lb-rank{width:38px; font-weight:900; color:#A98A5E; font-variant-numeric:tabular-nums}
+.lb-name{flex:1; min-width:0; font-weight:600; color:#5C3618; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.lb-farm{font-weight:400; font-size:12px; color:#A98A5E}
+.lb-lvl{font-weight:800; color:#3E8A1C}
+
+/* ---------- profile form ---------- */
+.field{margin-bottom:12px}
+.field label{display:block; font-size:13px; font-weight:600; color:#7A5730; margin-bottom:5px}
+.field input{
+  width:100%; padding:11px 12px; border-radius:12px; font:inherit; font-size:15px;
+  border:2px solid rgba(132,81,42,.3); background:rgba(255,255,255,.75); color:#5C3618;
+}
+.field input:focus{outline:none; border-color:#B8801E; background:#fff}
+.form-err{color:#C4402E; font-size:13px; font-weight:600; margin:-6px 0 10px}
+
+/* ---------- away summary ---------- */
+#away{position:fixed; inset:0; z-index:65; display:none; place-items:center; background:rgba(24,16,6,.5)}
+#away.on{display:grid}
+#away .aw{width:min(400px, calc(100vw - 32px)); padding:22px; text-align:center}
+#away .aw h3{font-family:Fredoka,sans-serif; font-size:22px; color:#5C3618; margin:0 0 4px}
+#away .aw .sub{font-size:13px; color:#A98A5E; margin-bottom:14px}
+#away .aw-lines{display:flex; flex-direction:column; gap:7px; margin-bottom:14px}
+#away .aw-line{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  font-size:15px; font-weight:600; color:#5C3618;
+}
+#away .aw-items{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:16px}
+#away .aw-item{display:flex; align-items:center; gap:4px; font-weight:800; color:#7A5730}
+
+/* ---------- settings row (sound + language) ---------- */
+.settings{display:flex; gap:8px; margin-top:14px; padding-top:14px; border-top:2px solid rgba(132,81,42,.18)}
+.settings .btn{flex:1; padding:9px 10px; font-size:13px}
+
+/* ---------- speed-up affordance ---------- */
+.speed-btn{
+  display:inline-flex; align-items:center; gap:5px; padding:7px 11px; border-radius:11px;
+  background:linear-gradient(#C9A6F5,#9B5CF0); color:#fff; border:2px solid #5B21A8;
+  font-weight:700; font-size:13px; cursor:pointer;
+}
+.speed-btn:disabled{filter:grayscale(.6); opacity:.6; cursor:default}
+.speed-btn svg{width:15px; height:15px}

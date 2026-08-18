@@ -95,7 +95,9 @@ export default async function orderRoutes(app: FastifyInstance) {
 
       return {
         notice: {
+          code: 'order_delivered',
           message: `Delivered to ${order.who} — +${reward.coins} coins, +${reward.hay} $HAY`,
+          params: { who: order.who, coins: reward.coins, hay: reward.hay },
           icon: 'coin',
         },
       };

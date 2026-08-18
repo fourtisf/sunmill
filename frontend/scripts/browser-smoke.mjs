@@ -32,7 +32,11 @@ await page.waitForTimeout(2000);
 await (await page.$('#btnGuest')).dispatchEvent('pointerdown');
 await page.waitForTimeout(2500);
 await page.evaluate(() => document.getElementById('introGo')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
-await page.waitForTimeout(900);
+await page.waitForTimeout(1400);
+// The onboarding guide starts for a new farm; step out of it so this test can
+// drive the UI directly. Its own walkthrough is covered separately.
+await page.evaluate(() => document.querySelector('#guide .g-stop')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.waitForTimeout(600);
 
 const coins0 = await page.$eval('#coinTxt', e => Number(e.textContent));
 ok('logged in with a fresh farm', coins0 === 640, 'coins=' + coins0);
@@ -122,7 +126,7 @@ ok('ingredients came out of the silo', !queued.silo.startsWith('30/'), 'silo=' +
 // market panel: sell surplus
 await page.evaluate(() => document.querySelector('#mClose')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
 await page.waitForTimeout(400);
-await page.evaluate(() => document.querySelectorAll('#rail .rbtn')[1].dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.evaluate(() => document.querySelector('#rb_market').dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
 await page.waitForTimeout(1200);
 ok('the market panel opened', (await page.$eval('#modal h2', e=>e.textContent)).includes('Roadside Market'));
 await page.evaluate(() => [...document.querySelectorAll('#mBody [data-tab]')].find(b => b.textContent === 'Sell')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
@@ -136,7 +140,7 @@ ok('selling paid out and the HUD followed', coinsAfterSell > coinsBeforeSell, co
 // orders panel: skip one, board stays full
 await page.evaluate(() => document.querySelector('#mClose')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
 await page.waitForTimeout(400);
-await page.evaluate(() => document.querySelectorAll('#rail .rbtn')[0].dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.evaluate(() => document.querySelector('#rb_orders').dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
 await page.waitForTimeout(1000);
 const tickets = await page.$$eval('#mBody .ticket', n => n.length);
 ok('the order board rendered four tickets', tickets === 4, 'tickets=' + tickets);
@@ -148,6 +152,51 @@ ok('the skipped order is gone from the board', !remaining.includes(skippedId),
    remaining.length + ' orders remain');
 await page.evaluate(() => document.querySelector('#mClose')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
 await page.waitForTimeout(400);
+
+// New systems: daily tasks, the streak, and the $HAY sink.
+await page.evaluate(() => document.querySelector('#rb_tasks').dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.waitForTimeout(1200);
+ok('the daily tasks panel opened', (await page.$$eval('#mBody .task', n => n.length)) === 3,
+   (await page.$$eval('#mBody .task', n => n.length)) + ' tasks');
+ok('the streak strip shows seven days', (await page.$$eval('.streak-day', n => n.length)) === 7);
+const coinsBeforeStreak = await page.$eval('#coinTxt', e => Number(e.textContent));
+await page.evaluate(() => [...document.querySelectorAll('#mBody button')]
+  .find(b => /Claim day|Ambil hari/.test(b.textContent))?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.waitForTimeout(1600);
+ok('claiming the daily reward pays out',
+   (await page.$eval('#coinTxt', e => Number(e.textContent))) > coinsBeforeStreak);
+await page.evaluate(() => document.querySelector('#mClose')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.waitForTimeout(500);
+
+// Speed-up: tapping a growing crop offers to finish it for $HAY.
+await page.evaluate(() => document.querySelector('#dockInner .seed').dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+const freePlot = await page.evaluate(() => (window.__HITS||[]).find(h => h.kind === 'plot' && !h.ref.crop));
+if (freePlot) {
+  await page.mouse.move(freePlot.x, freePlot.y); await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(1500);
+  const growingPlot = await page.evaluate(() => (window.__HITS||[]).find(h => h.kind === 'plot' && h.ref.crop && !h.ref.ready));
+  if (growingPlot) {
+    await page.mouse.move(growingPlot.x, growingPlot.y); await page.mouse.down(); await page.mouse.up();
+    await page.waitForTimeout(1400);
+    ok('tapping a growing crop offers a speed-up', Boolean(await page.$('.speed-btn')));
+    const hayBefore = await page.$eval('#hayTxt', e => Number(e.textContent));
+    await page.evaluate(() => document.querySelector('.speed-btn')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+    await page.waitForTimeout(1800);
+    const hayAfter = await page.$eval('#hayTxt', e => Number(e.textContent));
+    ok('$HAY was spent and the crop finished', hayAfter < hayBefore, hayBefore + ' -> ' + hayAfter);
+    ok('the speed-up sheet closed itself', !(await page.$('#scrim.on')));
+  }
+}
+
+// The joystick walks the farmer.
+const jkBox = await (await page.$('#joystick')).boundingBox();
+await page.mouse.move(jkBox.x + jkBox.width / 2, jkBox.y + jkBox.height / 2);
+await page.mouse.down();
+await page.mouse.move(jkBox.x + jkBox.width / 2 + 40, jkBox.y + jkBox.height / 2 + 12, { steps: 4 });
+await page.waitForTimeout(900);
+const knob = await page.evaluate(() => document.querySelector('#joystick .jk-knob').style.transform);
+await page.mouse.up();
+ok('the joystick tracks the thumb', /translate\(4?\d(\.\d+)?px/.test(knob), knob);
 
 // the hens have had their 30s by now — collect by tapping one in the field
 await page.waitForFunction(() => (window.__HITS||[]).some(h => h.kind === 'animal' && h.ref.state === 'ready'),
@@ -183,13 +232,23 @@ ok('tapping a ready hen collected its egg into the barn', barnAfter !== barnBefo
    barnBefore + ' -> ' + barnAfter);
 
 // reload: the farm must survive
+const beforeReload = await page.evaluate(() => ({
+  silo: document.querySelector('#siloTxt').textContent,
+  coins: Number(document.querySelector('#coinTxt').textContent),
+  barn: document.querySelector('#barnTxt').textContent,
+}));
 await page.reload({ waitUntil: 'networkidle' });
 await page.waitForTimeout(3000);
 const afterReload = await page.evaluate(() => ({
   silo: document.querySelector('#siloTxt').textContent,
   coins: Number(document.querySelector('#coinTxt').textContent),
+  barn: document.querySelector('#barnTxt').textContent,
 }));
-ok('the farm survives a page reload', afterReload.coins === coinsAfterSell, JSON.stringify(afterReload));
+ok('the farm survives a page reload',
+   afterReload.coins === beforeReload.coins
+   && afterReload.silo === beforeReload.silo
+   && afterReload.barn === beforeReload.barn,
+   JSON.stringify(afterReload));
 
 console.log('\n' + pass + ' browser checks passed');
 console.log('page errors:', errs.length ? errs : 'none');

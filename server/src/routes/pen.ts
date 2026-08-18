@@ -108,7 +108,7 @@ export default async function penRoutes(app: FastifyInstance) {
       await ledger(ctx, 'produce', { pen: def.id, item: def.out, qty: collected }, { xp });
       await bump(ctx, 'collect_pen', collected);
 
-      if (short) return { notice: { message: 'Barn is full', icon: def.out, bad: true } };
+      if (short) return { notice: { code: 'barn_full', message: 'Barn is full', icon: def.out, bad: true } };
       return undefined;
     });
   });

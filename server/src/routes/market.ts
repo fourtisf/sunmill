@@ -104,7 +104,14 @@ export default async function marketRoutes(app: FastifyInstance) {
       }, { coins: gain, xp });
       await bump(ctx, 'sell', qty);
 
-      return { notice: { message: `Sold ${qty}× ${item.name} — +${gain}`, icon: 'coin' } };
+      return {
+        notice: {
+          code: 'sold',
+          message: `Sold ${qty}× ${item.name} — +${gain}`,
+          params: { qty, item: item.id, coins: gain.toString() },
+          icon: 'coin',
+        },
+      };
     });
   });
 }

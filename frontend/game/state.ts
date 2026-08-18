@@ -6,7 +6,10 @@
  * response always wins (HANDOFF §8). Nothing in this file decides a price, a
  * duration or a level gate — those all arrive in `config` from /api/config.
  */
-import type { GameConfig, ItemConfig, MarketBoard, Snapshot } from './types';
+import { itemLabel, machineLabel, penLabel } from './i18n';
+import type {
+  GameConfig, ItemConfig, Leaderboard, MarketBoard, Snapshot, SpeedUpQuote, UpgradeBoard,
+} from './types';
 
 type Listener = () => void;
 
@@ -17,11 +20,24 @@ export const S = {
   serverOffsetMs: 0,
   /** Client-only view state. */
   sel: 'wheat' as string,
+  /**
+   * Whether the player has chosen a seed themselves. A seed is pre-selected so
+   * the game is playable on the first tap, which means "have you picked one?"
+   * cannot be answered by looking at `sel` — the guide needs the real signal.
+   */
+  seedChosen: false,
   marketTab: 'buy' as 'buy' | 'sell',
+  buildTab: 'expand' as 'expand' | 'upgrade',
   market: null as MarketBoard | null,
   openModal: null as string | null,
   /** True while an action is in flight, to keep double taps from stacking. */
   busy: false,
+  /** Cached side-boards, refreshed when their panel opens. */
+  speedUp: null as SpeedUpQuote | null,
+  upgrades: null as UpgradeBoard | null,
+  board: null as Leaderboard | null,
+  /** The away summary, held until the player dismisses the card. */
+  away: null as Snapshot['away'] | null,
 };
 
 const listeners: Record<string, Listener[]> = {};
@@ -47,8 +63,19 @@ export function setConfig(config: GameConfig): void {
 export function apply(snapshot: Snapshot): Snapshot {
   S.snap = snapshot;
   S.serverOffsetMs = Date.parse(snapshot.serverTime) - Date.now();
+  // The away summary arrives once, on the first read back — hold it until the
+  // player has actually seen the card.
+  if (snapshot.away) S.away = snapshot.away;
   emit('snapshot');
   return snapshot;
+}
+
+export function tasks() {
+  return S.snap?.tasks ?? [];
+}
+
+export function streak() {
+  return S.snap?.streak;
 }
 
 /* ================= READ HELPERS ================= */
@@ -71,8 +98,20 @@ export function item(id: string): ItemConfig {
   return cfg().items[id];
 }
 
+/** Display name for an item, localised, falling back to what the server sent. */
 export function itemName(id: string): string {
-  return cfg().items[id]?.name ?? id;
+  const server = cfg().items[id]?.name ?? id;
+  return itemLabel(id, server);
+}
+
+export function machineName(id: string): string {
+  const def = machineCfg(id);
+  return machineLabel(id, def?.name ?? id);
+}
+
+export function penName(id: string): string {
+  const def = penCfg(id);
+  return penLabel(id, def?.name ?? id);
 }
 
 export function inv(id: string): number {

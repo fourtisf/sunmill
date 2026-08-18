@@ -12,6 +12,7 @@
  */
 import { ART as A, ICON } from './art';
 import { W as WD } from './art2';
+import { stick } from './joystick';
 import { cfg, level, penCfg, progress, ready, S, serverNow, snap } from './state';
 
 const TW = WD.TW, TH = WD.TH;
@@ -19,8 +20,14 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 /* ================= WORLD LAYOUT ================= */
 
+/**
+ * Where each field slot sits. The first sixteen fill the meadow left of the
+ * path; the last eight open on the far side of it, which is where the level
+ * curve past 10 puts them. Index order matches the server's tile index.
+ */
 export const FIELD_POS = [];
-for (let r = 0; r < 3; r++) for (let cx = 0; cx < 4; cx++) FIELD_POS.push([1.6 + cx * 1.05, 1.5 + r * 1.05]);
+for (let r = 0; r < 4; r++) for (let cx = 0; cx < 4; cx++) FIELD_POS.push([1.6 + cx * 1.05, 1.5 + r * 1.05]);
+for (let r = 0; r < 2; r++) for (let cx = 0; cx < 4; cx++) FIELD_POS.push([5.9 + cx * 1.0, 1.5 + r * 1.05]);
 
 const ISO_W = 13, ISO_D = 13;
 const DECOR = [];
@@ -31,7 +38,9 @@ function buildDecor() {
   const B = [[9.6, 0.4], [0.4, 2.3], [0.35, 9.6], [12.5, 2.4], [10.6, 12.4], [2.0, 12.4], [12.5, 6.4], [6.4, 12.5]];
   B.forEach(function (p, i) { DECOR.push({ k: 'bush', x: p[0], y: p[1], i: i }) });
   DECOR.push({ k: 'rock', x: 0.5, y: 6.8, i: 1 }, { k: 'rock', x: 12.5, y: 10.4, i: 2 });
-  DECOR.push({ k: 'hay', x: 0.9, y: 5.0, i: 1 }, { k: 'hay', x: 4.9, y: 5.0, i: 2 });
+  // The second bale moved off (4.9, 5.0): the field block now reaches y 4.65
+  // there, and a hay bale sitting on a plot reads as a bug.
+  DECOR.push({ k: 'hay', x: 0.9, y: 5.0, i: 1 }, { k: 'hay', x: 7.2, y: 4.5, i: 2 });
   DECOR.push({ k: 'pond', x: 2.3, y: 10.9 });
   DECOR.push({ k: 'barn', x: 9.5, y: 1.4 });
   DECOR.push({ k: 'silo', x: 11.2, y: 2.3 });
@@ -43,7 +52,30 @@ function buildDecor() {
 const FARMER = { x: 5.2, y: 5.4, tx: 5.2, ty: 5.4, walk: 0, flip: false, blink: 0, bt: 2 };
 
 /** Walk the farmer over to whatever the player just touched. */
-export function sendFarmer(x, y) { FARMER.tx = x; FARMER.ty = y }
+export function sendFarmer(x, y) {
+  // A tap must not fight the stick: while the player is steering, ignore it.
+  if (stick.active) return;
+  FARMER.tx = x; FARMER.ty = y;
+}
+
+export function farmerPos() { return { x: FARMER.x, y: FARMER.y } }
+
+/** Keep the farmer on the island rather than walking into the sea. */
+const WALK_MIN = 0.4;
+const WALK_MAX = 12.6;
+const WALK_SPEED = 2.6;
+
+/**
+ * Turn a screen-space stick direction into a world-space one. The world is
+ * isometric, so pushing the stick right is not "x + 1" — it is the inverse of
+ * the iso projection, the same maths the tap picker uses in reverse.
+ */
+function stickToWorld(sx, sy) {
+  const wx = sx / TW + sy / TH;
+  const wy = sy / TH - sx / TW;
+  const len = Math.hypot(wx, wy);
+  return len ? { x: wx / len, y: wy / len, len } : null;
+}
 
 function truckPos() { const d = DECOR.find(function (o) { return o.k === 'truck' }); return WD.iso(d.x, d.y) }
 
@@ -393,14 +425,42 @@ export function step(dt) {
       });
     }
   }
-  const fdx = FARMER.tx - FARMER.x, fdy = FARMER.ty - FARMER.y, fd = Math.hypot(fdx, fdy);
-  if (fd > .05) {
-    const sp = 1.9 * dt;
-    FARMER.x += fdx / fd * Math.min(sp, fd); FARMER.y += fdy / fd * Math.min(sp, fd);
-    FARMER.walk = 1; FARMER.flip = (fdx - fdy) < 0;
-  } else FARMER.walk = 0;
+  const push = stick.x || stick.y ? stickToWorld(stick.x, stick.y) : null;
+  if (push) {
+    // Steering wins over any walk-to target left over from a tap.
+    const throttle = Math.min(1, Math.hypot(stick.x, stick.y));
+    const step = WALK_SPEED * throttle * dt;
+    FARMER.x = clamp(FARMER.x + push.x * step, WALK_MIN, WALK_MAX);
+    FARMER.y = clamp(FARMER.y + push.y * step, WALK_MIN, WALK_MAX);
+    FARMER.tx = FARMER.x; FARMER.ty = FARMER.y;
+    FARMER.walk = 1;
+    FARMER.flip = (push.x - push.y) < 0;
+    followFarmer();
+  } else {
+    const fdx = FARMER.tx - FARMER.x, fdy = FARMER.ty - FARMER.y, fd = Math.hypot(fdx, fdy);
+    if (fd > .05) {
+      const sp = 1.9 * dt;
+      FARMER.x += fdx / fd * Math.min(sp, fd); FARMER.y += fdy / fd * Math.min(sp, fd);
+      FARMER.walk = 1; FARMER.flip = (fdx - fdy) < 0;
+    } else FARMER.walk = 0;
+  }
   FARMER.blink -= dt; if (FARMER.blink < -3 + Math.random() * 2) FARMER.blink = .14;
   fx.step(dt);
+}
+
+/**
+ * Ease the camera towards the farmer while the stick is being used, so walking
+ * off the edge of the screen is not possible. Only nudges when the farmer
+ * drifts out of the comfortable middle of the view.
+ */
+function followFarmer() {
+  const p = WD.iso(FARMER.x, FARMER.y);
+  const targetX = VW / 2 - p.x * cam.z;
+  const targetY = (CHROME_TOP + Math.max(CHROME_TOP + 120, VH - CHROME_BOTTOM)) / 2 - p.y * cam.z;
+  const slack = Math.min(VW, VH) * 0.16;
+  if (Math.abs(targetX - cam.x) > slack) cam.x += (targetX - cam.x) * 0.08;
+  if (Math.abs(targetY - cam.y) > slack) cam.y += (targetY - cam.y) * 0.08;
+  clampCam();
 }
 
 export function onResize() {

@@ -2,7 +2,10 @@
  * The API client. Every call returns the server's full farm snapshot, which
  * the caller hands to state.apply() — the server response always wins.
  */
-import type { ApiError, GameConfig, MarketBoard, OrderView, Snapshot } from './types';
+import type {
+  ApiError, GameConfig, Leaderboard, MarketBoard, OrderView, Snapshot,
+  SpeedUpQuote, UpgradeBoard,
+} from './types';
 
 const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '');
 
@@ -72,4 +75,27 @@ export const api = {
   sell: (item: string, qty: number) => request<Snapshot>('POST', '/api/market/sell', { item, qty }),
 
   expand: (target: 'silo' | 'barn') => request<Snapshot>('POST', '/api/expand', { target }),
+
+  /* the $HAY sink */
+  speedUpQuote: () => request<SpeedUpQuote>('GET', '/api/speedup/quote'),
+  speedUpTile: (index: number) => request<Snapshot>('POST', '/api/speedup', { target: 'tile', index }),
+  speedUpMachine: (machine: string) => request<Snapshot>('POST', '/api/speedup', { target: 'machine', machine }),
+  speedUpPen: (pen: string) => request<Snapshot>('POST', '/api/speedup', { target: 'pen', pen }),
+
+  /* late-game capacity */
+  upgrades: () => request<UpgradeBoard>('GET', '/api/upgrade'),
+  buyMachineSlot: (machine: string) =>
+    request<Snapshot>('POST', '/api/upgrade', { target: 'machineSlot', machine }),
+  buyPenAnimal: (pen: string) => request<Snapshot>('POST', '/api/upgrade', { target: 'penAnimal', pen }),
+
+  /* daily loop */
+  claimTask: (kind: string) => request<Snapshot>('POST', '/api/tasks/claim', { kind }),
+  claimStreak: () => request<Snapshot>('POST', '/api/daily/claim', {}),
+
+  /* identity */
+  setProfile: (body: { name?: string; farmName?: string }) =>
+    request<Snapshot>('POST', '/api/profile', body),
+  leaderboard: () => request<Leaderboard>('GET', '/api/leaderboard'),
+  setTutorial: (body: { step?: number; done?: boolean }) =>
+    request<Snapshot>('POST', '/api/tutorial', body),
 };

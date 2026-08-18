@@ -100,7 +100,7 @@ export default async function machineRoutes(app: FastifyInstance) {
       await ledger(ctx, 'collect', { machine: def.id, items: collected }, { xp });
       await bump(ctx, 'collect_machine', Object.values(collected).reduce((a, b) => a + b, 0));
 
-      if (short) return { notice: { message: 'Barn is full', icon: waiting[0], bad: true } };
+      if (short) return { notice: { code: 'barn_full', message: 'Barn is full', icon: waiting[0], bad: true } };
       return undefined;
     });
   });

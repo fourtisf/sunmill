@@ -9,7 +9,13 @@
 import { api, NetError } from './net';
 import { apply, cfg, S, setConfig, snap } from './state';
 import { getHIT, cam, clampCam, initWorld, onResize, render, step } from './render';
-import { bootUI, buildDock, buildRail, syncBadges, syncHUD, tickPanels, toast } from './ui';
+import {
+  bootUI, buildDock, buildRail, showAwayCard, syncBadges, syncHUD, tickPanels, toast,
+} from './ui';
+import { initLang, t } from './i18n';
+import { initAudio, unlockAudio } from './audio';
+import { mountJoystick, setJoystickVisible, unmountJoystick } from './joystick';
+import { startGuide, stopGuide, tutorialSteps } from './guide';
 
 const IDLE_SYNC_MS = 30_000;
 
@@ -47,6 +53,7 @@ async function sync() {
     apply(await api.farm());
     syncHUD(); syncBadges();
     if (snap().farm.level !== before) { buildDock(); buildRail() }
+    if (S.away) showAwayCard();
     scheduleSync();
   } catch (err) {
     if (err instanceof NetError && err.status === 401) return showLogin();
@@ -89,12 +96,12 @@ function showLogin() {
   card.dataset.mode = 'login';
   card.innerHTML =
     '<div class="logo">SUNMILL</div>'
-    + '<div class="tl">Farm &amp; Craft Tycoon</div>'
-    + '<p>Your farm lives on the server — crops keep growing while you are away.</p>'
+    + '<div class="tl">' + t('intro.tagline') + '</div>'
+    + '<p>' + t('login.blurb') + '</p>'
     + '<div id="loginErr" class="hint" style="display:none"><span class="d"></span><span id="loginErrTxt"></span></div>'
-    + '<button class="btn gold go" id="btnWallet">Connect wallet</button>'
+    + '<button class="btn gold go" id="btnWallet">' + t('login.wallet') + '</button>'
     + (cfg().features.devLogin
-      ? '<button class="btn wood go" id="btnGuest" style="margin-top:10px">Play as guest (dev)</button>'
+      ? '<button class="btn wood go" id="btnGuest" style="margin-top:10px">' + t('login.guest') + '</button>'
       : '');
   intro.classList.remove('gone');
   intro.style.display = '';
@@ -106,8 +113,9 @@ function showLogin() {
   };
 
   document.getElementById('btnWallet').addEventListener('pointerdown', async function () {
+    unlockAudio();
     const eth = window.ethereum;
-    if (!eth) return fail('No wallet found in this browser.');
+    if (!eth) return fail(t('login.noWallet'));
     try {
       const accounts = await eth.request({ method: 'eth_requestAccounts' });
       const address = accounts[0];
@@ -116,18 +124,19 @@ function showLogin() {
       await api.loginWallet(address, signature);
       await afterLogin();
     } catch (err) {
-      fail(err instanceof NetError ? err.message : 'Could not sign in with that wallet.');
+      fail(err instanceof NetError ? err.message : t('login.failed'));
     }
   });
 
   const guest = document.getElementById('btnGuest');
   if (guest) {
     guest.addEventListener('pointerdown', async function () {
+      unlockAudio();
       try {
         await api.loginDev('guest-' + Math.random().toString(36).slice(2, 8));
         await afterLogin();
       } catch (err) {
-        fail(err instanceof NetError ? err.message : 'Guest login is disabled.');
+        fail(err instanceof NetError ? err.message : t('login.guestFailed'));
       }
     });
   }
@@ -139,6 +148,26 @@ async function afterLogin() {
   buildDock(); buildRail(); syncHUD(); syncBadges();
   scheduleSync();
   dismissIntro();
+  maybeStartTutorial();
+}
+
+/**
+ * A player who has never finished the guide gets it on their first farm. It
+ * waits on real state at every step, so someone who ignores it and plays their
+ * own way simply walks through it without noticing.
+ */
+function maybeStartTutorial() {
+  const tutorial = S.snap?.tutorial;
+  if (!tutorial || tutorial.done) return;
+  window.setTimeout(function () {
+    startGuide({
+      id: 'tutorial',
+      steps: tutorialSteps(),
+      onFinish: function (completed) {
+        void api.setTutorial(completed ? { done: true } : { step: 1 }).catch(function () {});
+      },
+    });
+  }, 700);
 }
 
 function dismissIntro() {
@@ -154,15 +183,19 @@ export async function boot() {
   window.__clampCam = clampCam;
   window.__HITS = [];
 
+  initLang();
+  initAudio();
+
   try {
     setConfig(await api.config());
   } catch (err) {
-    toastFallback('Cannot reach the farm server.');
+    toastFallback(t('login.offline'));
     return;
   }
 
   initWorld();
   bootUI();
+  mountJoystick();
   started = true;
   startLoop();
 
@@ -173,13 +206,7 @@ export async function boot() {
   // Slow safety net on top of the timer-driven syncs.
   idleTimer = setInterval(function () { if (!document.hidden && S.snap) sync() }, IDLE_SYNC_MS);
 
-  const scale = cfg().timeScale;
-  const note = document.getElementById('introScale');
-  if (note) {
-    note.innerHTML = scale === 1
-      ? '<b>Timers are sped up</b> so you can feel the whole loop in a few minutes.'
-      : '<b>Crops take real time.</b> Wheat is ready in about ' + Math.round(cfg().items.wheat.growSeconds / 60) + ' minutes.';
-  }
+  localiseIntro();
 
   try {
     apply(await api.farm());
@@ -187,11 +214,36 @@ export async function boot() {
     buildDock(); buildRail(); syncHUD(); syncBadges();
     scheduleSync();
     const go = document.getElementById('introGo');
-    if (go) go.addEventListener('pointerdown', dismissIntro);
+    if (go) {
+      go.addEventListener('pointerdown', function () {
+        unlockAudio();
+        dismissIntro();
+        if (S.away) showAwayCard();
+        maybeStartTutorial();
+      });
+    }
   } catch (err) {
     if (err instanceof NetError && err.status === 401) showLogin();
-    else toastFallback('Cannot reach the farm server.');
+    else toastFallback(t('login.offline'));
   }
+}
+
+/** The intro card is static markup; fill it in for the current language. */
+function localiseIntro() {
+  const setText = (id, html) => {
+    const node = document.getElementById(id);
+    if (node) node.innerHTML = html;
+  };
+  setText('introTagline', t('intro.tagline'));
+  setText('introBlurb', t('intro.blurb'));
+  setText('introHint1', t('intro.hint1'));
+  setText('introHint2', t('intro.hint2'));
+  setText('introGo', t('intro.start'));
+
+  const scale = cfg().timeScale;
+  setText('introScale', scale === 1
+    ? t('intro.hintFast')
+    : t('intro.hintReal', { n: Math.max(1, Math.round(cfg().items.wheat.growSeconds / 60)) }));
 }
 
 function toastFallback(msg) {
@@ -204,5 +256,7 @@ function toastFallback(msg) {
 export function shutdown() {
   if (syncTimer) clearTimeout(syncTimer);
   if (idleTimer) clearInterval(idleTimer);
+  stopGuide(false);
+  unmountJoystick();
   started = false;
 }

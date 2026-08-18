@@ -36,7 +36,7 @@ export default async function expandRoutes(app: FastifyInstance) {
         target, from: current, to: current + rules.step, coinCost: coinCost.toString(), hayCost: rules.hay,
       }, { coins: -coinCost, hay: `-${rules.hay}` });
 
-      return { notice: { message: 'Upgrade complete!', icon: 'coin' } };
+      return { notice: { code: 'expand_done', message: 'Upgrade complete!', icon: 'coin' } };
     });
   });
 }
