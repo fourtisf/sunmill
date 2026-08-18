@@ -248,8 +248,9 @@ already draw.
 
 ## Brand
 
-The mark is a windmill standing in a sun, with the mill's sails doubling as the
-sun's rays — the Feed Mill the player builds first. Logos, lockups, icons and
+The mark is a windmill standing in a sun — the sails are cut out of the disc
+rather than drawn on it, so the two read as one struck shape. It is the Feed
+Mill the player builds first. Logos, lockups, icons and
 the social card live in `frontend/public/brand/`, all drawn as SVG including
 the letters, so there is no font to load or licence. Raster sizes are generated
 from those vectors by `frontend/scripts/build-brand-assets.mjs`, never

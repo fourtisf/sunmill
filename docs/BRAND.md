@@ -1,9 +1,12 @@
 # SUNMILL — brand
 
 The name is the brief: **sun + mill**. The mark is a windmill standing in a
-sun, and the mill's four sails are the sun's rays — one shape doing both jobs.
-It also happens to be the Feed Mill the player builds first, so the logo is a
-thing that exists in the game rather than an abstraction bolted on top.
+sun — but the sails are not drawn *on* the sun, they are cut *out* of it.
+Everything inside the disc is clipped to the disc, so the sail tips and the
+ground end flush with its edge and the two shapes read as one struck form
+rather than a sticker on a coin. It also happens to be the Feed Mill the player
+builds first, so the logo is a thing that exists in the game rather than an
+abstraction bolted on top.
 
 Everything is drawn as SVG, including the letters. There is no font to load,
 embed or licence, and no binary anyone has to trust — the same reasoning that
@@ -19,10 +22,10 @@ All under `frontend/public/brand/`.
 |---|---|
 | `sunmill-logo.svg` | **Primary.** Horizontal lockup, dark wordmark. Light backgrounds. |
 | `sunmill-logo-light.svg` | Horizontal lockup, cream wordmark. Dark backgrounds. |
-| `sunmill-logo-stacked.svg` | Vertical lockup. Narrow spaces, splash screens, the game's own intro card. |
-| `sunmill-logo-stacked-light.svg` | Vertical lockup for dark backgrounds. |
-| `sunmill-mark.svg` | The mark alone, full detail. App icons from 32px up. |
-| `sunmill-mark-simple.svg` | The mark with the lattice, door, rays and gloss removed. **Use below 32px** — none of that detail survives, and leaving it in turns the icon to mud. |
+| `sunmill-logo-stacked.svg` | Vertical lockup. Narrow spaces, splash screens. |
+| `sunmill-logo-stacked-light.svg` | Vertical lockup for dark backgrounds — including the game's own intro card, which sits on dark green. |
+| `sunmill-mark.svg` | The mark alone, full detail. **32px and up.** |
+| `sunmill-mark-simple.svg` | Bigger disc, heavier sails, no gradient, hub or rim. **Use below 32px** — none of that detail survives, and leaving it in turns the icon to mud. |
 | `sunmill-mono.svg` | One colour. Stamps, embossing, single-colour print. Set `color` to recolour. |
 | `sunmill-mono-light.svg` | The same, pre-set to cream. |
 | `sunmill-wordmark.svg` | Letters only. Set `color` to recolour. |
@@ -43,34 +46,36 @@ with the vectors.
 
 ## Colour
 
-Straight from the game's own CSS variables — the logo and the UI share one
-palette, so nothing has to be matched by eye.
-
 | Role | Hex | Where |
 |---|---|---|
-| Sun, centre | `#FFF4D4` | disc highlight, sails, door |
-| Sun, mid | `#F6C94F` | disc body, hub pip |
-| Sun, edge | `#D5951E` | disc rim shading |
-| Wood, mid | `#7A4A1C` | mill body highlight |
-| Wood, deep | `#54300F` | mill body |
-| Ink | `#2C1705` | every outline, cap, plinth |
+| Sun, centre | `#FFE9A8` | disc gradient highlight |
+| Sun, mid | `#F6C94F` | disc body, hairline rim |
+| Sun, edge | `#DDA426` | disc gradient shading |
+| Ink | `#2C1705` | tile, mill, sails, ground |
 | Wordmark | `#5C3618` | letters on light |
 | Wordmark, reversed | `#FFF4D4` | letters on dark |
+| Social ground | `#170C02` | the `opengraph-image` field, deeper than the tile |
 
-Sky `#5AA8D8` → `#8FCBE8` and grass `#3E7A2A` are the game's background
-gradient, used on the social card.
+The sun's three stops are the game's own gold ramp; the ink is the outline
+colour every sprite in `art.ts` already uses, so the logo and the UI share one
+palette and nothing has to be matched by eye.
 
 ---
 
 ## Using it
 
-- **Clear space:** keep the height of the mark's rim free on every side. In the
-  lockups that spacing is already built in.
-- **Minimum size:** 24px for `sunmill-mark-simple.svg`, 32px for
+- **Clear space:** keep one quarter of the tile's width free on every side. In
+  the lockups that spacing is already built in.
+- **Minimum size:** 16px for `sunmill-mark-simple.svg`, 32px for
   `sunmill-mark.svg`, 96px wide for the horizontal lockup. Below that, use the
   mark alone.
-- **On a dark background** use the `-light` variants. Do not invert the full
-  lockup wholesale — that turns the gold disc into a white blob.
+- **On a dark background** use the `-light` variants. The tile carries its own
+  colour, so only the wordmark changes — never invert the mark itself, which
+  would turn the sun into a hole.
+- **The tile is full-bleed.** Where the platform rounds or masks its own shape
+  (Apple touch icons, Android maskable icons), render the mark on `#2C1705`
+  rather than on gold, or the rounding shows as a frame. The build script
+  already does this.
 - **Do not** re-colour the disc, rotate the mark, add a second shadow, stretch
   either axis independently, or set "SUNMILL" in a font next to the mark. The
   wordmark is drawn; a typeface substitute will not match it.
@@ -96,9 +101,12 @@ on its own.
 A logo that only exists at one size is not finished. The three cuts are the
 same drawing at three levels of detail:
 
-- **Full** — gradients, rays, lattice, door, gloss. Anything 64px and up.
-- **Simple** — flat gold, four sails, tower, rim. Favicons and 16–32px, where
-  the full mark's detail collapses into noise.
-- **Mono** — one colour, with the hub raised and the sails shortened so they
-  clear the tower. Without a second colour to separate them, sails that crossed
-  the tower would merge into a single blob.
+- **Full** — gradient sun, hub, and a gold hairline on the tile. The tile is
+  nearly black, and without that hairline the icon loses its edge against a
+  dark page; it is definition, not decoration. Anything 32px and up.
+- **Simple** — flat gold, bigger disc, heavier sails, no hub or rim. Favicons
+  and 16–24px, where the full mark's detail collapses into noise. The tile
+  stays, because it is what guarantees contrast on an unknown background.
+- **Mono** — one colour, and the only cut that changes the drawing: the filled
+  disc becomes a ring. With no second colour available, a solid sun would
+  swallow the mill standing on it.

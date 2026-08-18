@@ -1,71 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SUNMILL">
   <title>SUNMILL</title>
+  <!-- Solar Mill. The sails are not drawn on top of the sun, they are cut out
+       of it: everything below is clipped to the disc, so the sail tips and the
+       ground end flush with its edge and the two shapes read as one struck
+       form rather than a sticker on a coin. -->
   <defs>
-    <radialGradient id="sunFace" cx="40%" cy="30%" r="80%">
-      <stop offset="0" stop-color="#FFF4D4"/>
-      <stop offset="46%" stop-color="#F6C94F"/>
-      <stop offset="100%" stop-color="#D5951E"/>
+    <radialGradient id="sm-sun" cx="38%" cy="30%" r="78%">
+      <stop offset="0" stop-color="#FFE9A8"/>
+      <stop offset="52%" stop-color="#F6C94F"/>
+      <stop offset="100%" stop-color="#DDA426"/>
     </radialGradient>
-    <linearGradient id="towerFace" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#7A4A1C"/>
-      <stop offset="50%" stop-color="#54300F"/>
-      <stop offset="100%" stop-color="#3A2008"/>
-    </linearGradient>
-    <clipPath id="disc"><circle cx="256" cy="256" r="223"/></clipPath>
-
-    <!-- one sail; the other three are rotations of it -->
-    <g id="sail">
-      <path d="M244 240 L229 124 Q256 102 283 124 L268 240 Z"
-            fill="#FFF4D4" stroke="#2C1705" stroke-width="9" stroke-linejoin="round"/>
-      <g stroke="#2C1705" stroke-width="6" stroke-linecap="round" opacity=".85">
-        <path d="M256 236 L256 116"/>
-        <path d="M236 196 L276 196"/>
-        <path d="M233 158 L279 158"/>
-      </g>
-    </g>
+    <clipPath id="sm-disc"><circle cx="256" cy="258" r="152"/></clipPath>
   </defs>
 
-  <circle cx="256" cy="256" r="223" fill="url(#sunFace)"/>
+  <rect x="12" y="12" width="488" height="488" rx="112" fill="#2C1705"/>
+  <circle cx="256" cy="258" r="152" fill="url(#sm-sun)"/>
 
-  <!-- eight rays, tapered inward and kept to the outer band: the sails do the
-       radiating, so the middle stays clear and the mark survives shrinking -->
-  <g clip-path="url(#disc)" fill="#FFF7E2" opacity=".38">
-    <g>
-      <path d="M256 148 L268 62 L244 62 Z" transform="rotate(22.5 256 256)"/>
-      <path d="M256 148 L268 62 L244 62 Z" transform="rotate(67.5 256 256)"/>
-      <path d="M256 148 L268 62 L244 62 Z" transform="rotate(112.5 256 256)"/>
-      <path d="M256 148 L268 62 L244 62 Z" transform="rotate(157.5 256 256)"/>
-      <path d="M256 148 L268 62 L244 62 Z" transform="rotate(202.5 256 256)"/>
-      <path d="M256 148 L268 62 L244 62 Z" transform="rotate(247.5 256 256)"/>
-      <path d="M256 148 L268 62 L244 62 Z" transform="rotate(292.5 256 256)"/>
-      <path d="M256 148 L268 62 L244 62 Z" transform="rotate(337.5 256 256)"/>
-    </g>
+  <g clip-path="url(#sm-disc)" fill="#2C1705">
+    <rect x="60" y="384" width="392" height="92"/>
+    <path d="M198 396 L224 274 H288 L314 396 Z"/>
+    <path d="M214 278 Q256 222 298 278 Z"/>
+    <path d="M141 133 L371 363 M371 133 L141 363" stroke="#2C1705" stroke-width="31" fill="none"/>
+    <circle cx="256" cy="248" r="23"/>
   </g>
 
-  <ellipse cx="172" cy="150" rx="96" ry="56" fill="#FFFFFF" opacity=".18" transform="rotate(-26 172 150)"/>
-  <circle cx="256" cy="256" r="197" fill="none" stroke="#FFF7E2" stroke-width="5" opacity=".38"/>
-
-  <g clip-path="url(#disc)">
-    <path d="M-20 428 Q256 376 532 428 L532 512 L-20 512 Z" fill="#3A2008" opacity=".18"/>
-
-    <!-- mill body: squat and wide, so the silhouette holds at icon size -->
-    <path d="M190 420 L216 276 L296 276 L322 420 Z" fill="url(#towerFace)"
-          stroke="#2C1705" stroke-width="9" stroke-linejoin="round"/>
-    <path d="M206 280 Q256 218 306 280 Z" fill="#3A2008" stroke="#2C1705" stroke-width="9" stroke-linejoin="round"/>
-    <path d="M236 420 L236 358 a20 20 0 0 1 40 0 L276 420 Z" fill="#FFF4D4"/>
-    <rect x="243" y="308" width="26" height="26" rx="6" fill="#FFF4D4" opacity=".9"/>
-    <rect x="176" y="408" width="160" height="24" rx="11" fill="#2C1705"/>
-  </g>
-
-  <!-- sails as an X: the mill rises between the two lower arms -->
-  <g transform="rotate(45 256 240)">
-    <use href="#sail"/>
-    <use href="#sail" transform="rotate(90 256 240)"/>
-    <use href="#sail" transform="rotate(180 256 240)"/>
-    <use href="#sail" transform="rotate(270 256 240)"/>
-  </g>
-  <circle cx="256" cy="240" r="27" fill="#2C1705"/>
-  <circle cx="256" cy="240" r="11" fill="#F6C94F"/>
-
-  <circle cx="256" cy="256" r="223" fill="none" stroke="#2C1705" stroke-width="19"/>
+  <!-- The tile is nearly black; without this hairline the icon loses its edge
+       against a dark page. It is definition, not decoration. -->
+  <rect x="26" y="26" width="460" height="460" rx="100" fill="none"
+        stroke="#F6C94F" stroke-width="4" opacity=".15"/>
 </svg>

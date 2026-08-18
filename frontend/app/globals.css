@@ -463,5 +463,7 @@ body{
 /* ---------- brand lockup on the intro / login card ---------- */
 .icard .brandmark{
   display:block; width:min(210px, 52vw); height:auto; margin:0 auto 2px;
+  /* The card itself is cream parchment, not the dark green behind it, so this
+     takes the dark wordmark and the same white emboss the card's other type has. */
   filter:drop-shadow(0 3px 0 rgba(255,255,255,.55));
 }
