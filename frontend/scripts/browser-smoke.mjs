@@ -37,6 +37,41 @@ await page.waitForTimeout(900);
 const coins0 = await page.$eval('#coinTxt', e => Number(e.textContent));
 ok('logged in with a fresh farm', coins0 === 640, 'coins=' + coins0);
 
+// tend the pen first: its timer then runs down during the crop and craft
+// phases below, so the whole loop is covered without extra waiting
+// Hens wander in front of the coop and are drawn on top of it, so pick a
+// point where the coop itself is the frontmost thing — tapping a hen is a
+// different (also valid) interaction.
+const pen = await page.evaluate(() => {
+  const hits = window.__HITS || [];
+  const box = hits.find(h => h.kind === 'pen');
+  if (!box) return null;
+  const topmost = (x, y) => {
+    for (let i = hits.length - 1; i >= 0; i--) {
+      const h = hits[i];
+      if (x >= h.x - h.w/2 && x <= h.x + h.w/2 && y >= h.y - h.h/2 && y <= h.y + h.h/2) return h.kind;
+    }
+    return null;
+  };
+  for (const dy of [-0.35, -0.25, -0.15, 0]) {
+    const y = box.y + box.h * dy;
+    if (topmost(box.x, y) === 'pen') return { x: box.x, y };
+  }
+  return null;
+});
+ok('the coop can be tapped without hitting a hen', Boolean(pen));
+await page.mouse.move(pen.x, pen.y); await page.mouse.down(); await page.mouse.up();
+await page.waitForTimeout(900);
+ok('the pen panel opened', (await page.$eval('#modal h2', e=>e.textContent)).includes('Chicken Coop'));
+await page.evaluate(() => [...document.querySelectorAll('#mBody button')]
+  .find(b => b.textContent.includes('Feed all'))?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.waitForTimeout(1600);
+const fedCount = await page.evaluate(() =>
+  (window.__HITS||[]).filter(h => h.kind === 'animal' && h.ref.state === 'full').length);
+ok('feeding the pen started the hens working', fedCount === 2, fedCount + ' hens fed');
+await page.evaluate(() => document.querySelector('#mClose')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.waitForTimeout(400);
+
 // sweep-plant across all four open fields
 const plots = await page.evaluate(() => (window.__HITS||[]).filter(h => h.kind === 'plot').map(h => ({x:h.x, y:h.y, i:h.ref.index})));
 ok('four fields are hit-testable', plots.length === 4);
@@ -113,6 +148,39 @@ ok('the skipped order is gone from the board', !remaining.includes(skippedId),
    remaining.length + ' orders remain');
 await page.evaluate(() => document.querySelector('#mClose')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
 await page.waitForTimeout(400);
+
+// the hens have had their 30s by now — collect by tapping one in the field
+await page.waitForFunction(() => (window.__HITS||[]).some(h => h.kind === 'animal' && h.ref.state === 'ready'),
+  null, { timeout: 40000 });
+ok('the server marked the hens ready', true);
+const barnBefore = await page.$eval('#barnTxt', e => e.textContent);
+let barnAfter = barnBefore;
+// Hens wander every frame, so read the position and tap in the same beat, and
+// only aim at one that is actually the frontmost thing under the cursor.
+for (let attempt = 0; attempt < 6 && barnAfter === barnBefore; attempt++) {
+  const hen = await page.evaluate(() => {
+    const hits = window.__HITS || [];
+    const topmost = (x, y) => {
+      for (let i = hits.length - 1; i >= 0; i--) {
+        const h = hits[i];
+        if (x >= h.x - h.w/2 && x <= h.x + h.w/2 && y >= h.y - h.h/2 && y <= h.y + h.h/2) return h;
+      }
+      return null;
+    };
+    for (const h of hits) {
+      if (h.kind !== 'animal' || h.ref.state !== 'ready') continue;
+      const top = topmost(h.x, h.y);
+      if (top && top.kind === 'animal' && top.ref.index === h.ref.index) return { x: h.x, y: h.y };
+    }
+    return null;
+  });
+  if (!hen) { await page.waitForTimeout(400); continue; }
+  await page.mouse.move(hen.x, hen.y); await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(1200);
+  barnAfter = await page.$eval('#barnTxt', e => e.textContent);
+}
+ok('tapping a ready hen collected its egg into the barn', barnAfter !== barnBefore,
+   barnBefore + ' -> ' + barnAfter);
 
 // reload: the farm must survive
 await page.reload({ waitUntil: 'networkidle' });

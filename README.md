@@ -75,7 +75,7 @@ npm run test:integration --workspace=server
 node server/scripts/smoke.mjs             # 54 end-to-end API checks, real timers
 node server/scripts/bench-resolve.ts      # resolver throughput, no DB
 node server/scripts/loadtest.mjs          # concurrent GET /api/farm
-npm i -D playwright && node frontend/scripts/browser-smoke.mjs   # 14 checks in a real browser
+npm i -D playwright && node frontend/scripts/browser-smoke.mjs   # 19 checks in a real browser
 ```
 
 ---
