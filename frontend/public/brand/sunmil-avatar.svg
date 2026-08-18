@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SUNMIL">
+  <title>SUNMIL</title>
+  <!-- The social-avatar cut. X, Discord and Telegram all mask the picture to a
+       circle, so this one is full-bleed rather than a rounded tile: the corners
+       are plain ink and are meant to be thrown away by the mask. The sun is
+       enlarged to fill the visible circle — at the tile's proportions it would
+       sit marooned in the middle with a ring of dead ink around it. -->
+  <defs>
+    <radialGradient id="av-sun" cx="38%" cy="30%" r="78%">
+      <stop offset="0" stop-color="#FFE9A8"/><stop offset="52%" stop-color="#F6C94F"/><stop offset="100%" stop-color="#DDA426"/>
+    </radialGradient>
+    <clipPath id="av-disc"><circle cx="256" cy="258" r="152"/></clipPath>
+  </defs>
+
+  <rect width="512" height="512" fill="#2C1705"/>
+
+  <g transform="translate(256 256) scale(1.289) translate(-256 -258)">
+    <circle cx="256" cy="258" r="152" fill="url(#av-sun)"/>
+    <g clip-path="url(#av-disc)" fill="#2C1705">
+      <rect x="60" y="384" width="392" height="92"/>
+      <path d="M198 396 L224 274 H288 L314 396 Z"/>
+      <path d="M214 278 Q256 222 298 278 Z"/>
+      <path d="M141 133 L371 363 M371 133 L141 363" stroke="#2C1705" stroke-width="31" fill="none"/>
+      <circle cx="256" cy="248" r="23"/>
+    </g>
+  </g>
+</svg>

@@ -29,10 +29,12 @@ All under `frontend/public/brand/`.
 | `sunmil-mono.svg` | One colour. Stamps, embossing, single-colour print. Set `color` to recolour. |
 | `sunmil-mono-light.svg` | The same, pre-set to cream. |
 | `sunmil-wordmark.svg` | Letters only. Set `color` to recolour. |
+| `sunmil-avatar.svg` | Social profile picture. Full-bleed, enlarged sun. See below. |
 
-Raster exports (`icon-192`, `icon-512`, `icon-maskable-512`, plus
-`app/icon.png`, `app/apple-icon.png`, `app/opengraph-image.png`) are
-**generated**, never hand-edited:
+Raster exports (`icon-192`, `icon-512`, `icon-maskable-512`,
+`social/x-avatar.png`, `social/x-header.png`, plus `app/icon.png`,
+`app/apple-icon.png`, `app/opengraph-image.png`) are **generated**, never
+hand-edited:
 
 ```bash
 npm i -D playwright
@@ -81,6 +83,36 @@ palette and nothing has to be matched by eye.
   wordmark is drawn; a typeface substitute will not match it.
 - The wordmark and both mono files use `currentColor`, so inlining the SVG and
   setting CSS `color` is the supported way to recolour them.
+
+---
+
+## Social profiles
+
+Two generated files under `public/brand/social/`, both served from the site so
+there is one canonical copy rather than whatever was last dragged into an
+upload box.
+
+**`x-avatar.png`** — 1000×1000. X, Discord and Telegram all mask the picture to
+a circle, so this cut is full-bleed rather than a rounded tile: its corners are
+plain ink and are *meant* to be thrown away. The sun is enlarged about 29% over
+the app-icon proportions, because at tile proportions it sits marooned in the
+middle of the circle with a ring of dead ink around it. Rendered opaque — a
+transparent avatar shows the platform's background through the corners instead
+of ours. Reads down to 24px, which is the reply-thread size.
+
+**`x-header.png`** — 1500×500 at 2×. Composed for where the platform actually
+puts things:
+
+- The profile picture covers the header's bottom-left, so nothing readable sits
+  below y≈370 on that side. The domain is an eyebrow *above* the wordmark for
+  exactly this reason — underneath the tagline it would be behind the avatar.
+- The mark is blown up and cropped by the right edge rather than placed whole.
+  A complete circle at that size reads as a floating sticker, and the mark
+  enlarged is really just a big X; bleeding it turns the logo into a field. The
+  avatar sitting inches away is already the logo at logo size.
+
+Re-run the build script after changing either source, and re-upload by hand —
+the platforms have no API here that we use.
 
 ---
 
