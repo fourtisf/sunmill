@@ -3,13 +3,12 @@ import { z } from 'zod';
 import { ORDERS, scaled } from '../config/gamedata';
 import { requireAuth } from '../auth/plugin';
 import { errors } from '../lib/errors';
-import { decimal } from '../lib/money';
 import { LIMITS, rateLimit } from '../lib/ratelimit';
 import { prisma } from '../lib/db';
 import { cacheDel, cacheGet, cacheSet, keys } from '../lib/redis';
-import { makeOrders, orderItemsValid, orderReward } from '../engine/orders';
+import { orderItemsValid, orderReward } from '../engine/orders';
+import { refillBoard } from '../engine/orderBoard';
 import { takeAll } from '../engine/inventory';
-import type { ActionContext } from './_context';
 import { addCoins, addHay, grantXp, ledger, runAction, saveFarm } from './_context';
 
 const idBody = z.object({ orderId: z.string().min(1).max(64) }).strict();
@@ -17,48 +16,6 @@ const idBody = z.object({ orderId: z.string().min(1).max(64) }).strict();
 interface CachedOrder {
   id: string; who: string; items: Record<string, number>;
   coins: number; xp: number; hay: string;
-}
-
-/**
- * Top the board back up to four, at most one order per refill interval, so a
- * player cannot churn Skip to reroll a board full of easy orders instantly.
- */
-async function refillBoard(ctx: ActionContext, force = false): Promise<void> {
-  const missing = ORDERS.boardSize - ctx.state.orders.length;
-  if (missing <= 0) return;
-
-  const intervalMs = scaled(ORDERS.refillSec) * 1000;
-  const elapsed = ctx.now.getTime() - ctx.state.farm.ordersFilledAt.getTime();
-  const earned = force ? missing : Math.floor(elapsed / intervalMs);
-  const add = Math.min(missing, Math.max(0, earned));
-  if (add <= 0) return;
-
-  const generated = makeOrders(ctx.state.farm.level, add);
-  for (const g of generated) {
-    const row = await ctx.tx.order.create({
-      data: {
-        farmId: ctx.state.farm.id,
-        who: g.who,
-        items: g.items,
-        coins: g.coins,
-        xp: g.xp,
-        hay: decimal(g.hay),
-      },
-    });
-    ctx.state.orders.push({
-      id: row.id, who: row.who, items: g.items, coins: row.coins,
-      xp: row.xp, hay: row.hay, createdAt: row.createdAt,
-    });
-  }
-
-  if (generated.length) {
-    ctx.state.farm.ordersFilledAt = ctx.now;
-    await ctx.tx.farm.update({
-      where: { id: ctx.state.farm.id },
-      data: { ordersFilledAt: ctx.now },
-    });
-    await cacheDel(keys.orders(ctx.state.farm.id));
-  }
 }
 
 export default async function orderRoutes(app: FastifyInstance) {

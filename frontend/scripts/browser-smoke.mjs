@@ -84,14 +84,44 @@ const queued = await page.evaluate(() => {
 ok('a job is on the line with a live progress bar', queued.bar, JSON.stringify(queued));
 ok('ingredients came out of the silo', !queued.silo.startsWith('30/'), 'silo=' + queued.silo);
 
+// market panel: sell surplus
+await page.evaluate(() => document.querySelector('#mClose')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.waitForTimeout(400);
+await page.evaluate(() => document.querySelectorAll('#rail .rbtn')[1].dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.waitForTimeout(1200);
+ok('the market panel opened', (await page.$eval('#modal h2', e=>e.textContent)).includes('Roadside Market'));
+await page.evaluate(() => [...document.querySelectorAll('#mBody [data-tab]')].find(b => b.textContent === 'Sell')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.waitForTimeout(600);
+const coinsBeforeSell = await page.$eval('#coinTxt', e => Number(e.textContent));
+await page.evaluate(() => [...document.querySelectorAll('#mBody button')].find(b => b.textContent === 'Sell 1')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.waitForTimeout(1400);
+const coinsAfterSell = await page.$eval('#coinTxt', e => Number(e.textContent));
+ok('selling paid out and the HUD followed', coinsAfterSell > coinsBeforeSell, coinsBeforeSell + ' -> ' + coinsAfterSell);
+
+// orders panel: skip one, board stays full
+await page.evaluate(() => document.querySelector('#mClose')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.waitForTimeout(400);
+await page.evaluate(() => document.querySelectorAll('#rail .rbtn')[0].dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.waitForTimeout(1000);
+const tickets = await page.$$eval('#mBody .ticket', n => n.length);
+ok('the order board rendered four tickets', tickets === 4, 'tickets=' + tickets);
+const skippedId = await page.$eval('#mBody [data-skip]', e => e.getAttribute('data-skip'));
+await page.evaluate(() => document.querySelector('#mBody [data-skip]')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.waitForTimeout(1400);
+const remaining = await page.$$eval('#mBody [data-skip]', n => n.map(e => e.getAttribute('data-skip')));
+ok('the skipped order is gone from the board', !remaining.includes(skippedId),
+   remaining.length + ' orders remain');
+await page.evaluate(() => document.querySelector('#mClose')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+await page.waitForTimeout(400);
+
 // reload: the farm must survive
 await page.reload({ waitUntil: 'networkidle' });
 await page.waitForTimeout(3000);
 const afterReload = await page.evaluate(() => ({
   silo: document.querySelector('#siloTxt').textContent,
-  coins: document.querySelector('#coinTxt').textContent,
+  coins: Number(document.querySelector('#coinTxt').textContent),
 }));
-ok('the farm survives a page reload', afterReload.silo === queued.silo, JSON.stringify(afterReload));
+ok('the farm survives a page reload', afterReload.coins === coinsAfterSell, JSON.stringify(afterReload));
 
 console.log('\n' + pass + ' browser checks passed');
 console.log('page errors:', errs.length ? errs : 'none');

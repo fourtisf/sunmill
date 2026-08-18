@@ -72,7 +72,7 @@ npm run test:integration --workspace=server
 node server/scripts/smoke.mjs             # 54 end-to-end API checks, real timers
 node server/scripts/bench-resolve.ts      # resolver throughput, no DB
 node server/scripts/loadtest.mjs          # concurrent GET /api/farm
-npm i -D playwright && node frontend/scripts/browser-smoke.mjs   # drives the real UI
+npm i -D playwright && node frontend/scripts/browser-smoke.mjs   # 14 checks in a real browser
 ```
 
 ---
@@ -133,7 +133,7 @@ behind a per-user Redis token bucket.
 | `GET /api/config` | Items, recipes, pens, level gates, `TIME_SCALE`. The client's only source of rules. |
 | `POST /api/auth/nonce` · `POST /api/auth/wallet` | Wallet login: single-use nonce → signature → JWT in an httpOnly cookie. |
 | `POST /api/auth/dev` | Signature-free login for local QA. Refused in production. |
-| `GET /api/farm` | The resolved snapshot, with server time. |
+| `GET /api/farm` | The resolved snapshot, with server time and the order board. |
 | `POST /api/plant` | Sweep-plant: one call, many tiles, seed cost per tile. |
 | `POST /api/harvest` | Tap a ready tile. Yield lands in the silo if it fits. |
 | `POST /api/machine/queue` · `/collect` | Consume ingredients, take a slot; move finished goods to the barn. |
