@@ -171,12 +171,26 @@ export function xpNeed(lvl: number): number {
 /** Demo values — revisit for the real economy (HANDOFF §7). */
 export const LEVEL_UP_REWARD = { coins: 60n, hay: '2' };
 
-/** Fields open, indexed by level, capped at index 10. */
-export const FIELD_OPEN = [4, 4, 6, 6, 8, 8, 10, 10, 12, 12, 12];
-export const MAX_TILES = 12;
+/**
+ * Fields open, indexed by level. The prototype stopped at 12 fields and level
+ * 10, which is where the game ran out of things to give; the curve now runs to
+ * level 20 and 24 fields.
+ *
+ * Levels 11+ deliberately unlock capacity rather than new crops or goods: the
+ * art engine is fixed (CLAUDE.md rule 2), so every item that exists has a
+ * sprite and any new one would not. Late progression therefore comes from
+ * scale — more fields, more machine slots, more animals — which the existing
+ * sprites already draw.
+ */
+export const FIELD_OPEN = [
+  4, 4, 6, 6, 8, 8, 10, 10, 12, 12,
+  12, 14, 14, 16, 16, 18, 20, 20, 22, 24, 24,
+];
+export const MAX_TILES = 24;
+export const MAX_LEVEL_CURVE = FIELD_OPEN.length - 1;
 
 export function fieldsOpen(level: number): number {
-  return FIELD_OPEN[Math.min(Math.max(level, 0), 10)];
+  return FIELD_OPEN[Math.min(Math.max(level, 0), MAX_LEVEL_CURVE)];
 }
 
 export const LEVEL_UP_TEXT = [
@@ -190,7 +204,17 @@ export const LEVEL_UP_TEXT = [
   'Carrot Cake recipe unlocked at the Bakery.',
   'Syrup unlocked. Your best-selling good yet.',
   'Two more fields. Scale it up.',
-  'Master farmer. The whole chain is yours.',
+  'The whole chain is yours. Now make it bigger.',
+  'Two more fields, and the machines can take another slot.',
+  'The pens have room for another animal.',
+  'Two more fields. The yard is filling up.',
+  'Another machine slot. Keep the line moving.',
+  'Two more fields, and another animal in each pen.',
+  'Four more fields. A proper estate.',
+  'The last machine slot. Three jobs deep is nothing now.',
+  'Two more fields, and the last animal each pen will hold.',
+  'Two more fields. Twenty-four in all.',
+  'Master farmer. Nothing on this island is beyond you.',
 ];
 
 export const NEIGHBOUR_NAMES = [
@@ -205,10 +229,116 @@ export const EXPAND = {
   barn: { coinsPerCap: 10, hay: '1', step: 20, max: 500 },
 };
 
+/* ================= SPEED-UP: THE $HAY SINK ================= */
+
+/**
+ * Pay $HAY to finish a timer now.
+ *
+ * Before this existed, orders and level-ups granted hay and only two
+ * expansions ever consumed any, so the balance had nowhere to go — emission
+ * with no demand behind it. This is the genre's standard sink and the main
+ * one here: it scales with how much time is left, so it drains more the more
+ * impatient the player is.
+ *
+ * The rate is a placeholder pending an economy pass. It sits here as one
+ * number so it can be retuned without touching a route.
+ */
+export const SPEEDUP = {
+  /** $HAY charged per remaining minute, before rounding. */
+  hayPerMinute: 0.15,
+  /** Nobody pays less than this, however little time is left. */
+  minHay: '0.10',
+  /** Below this many seconds remaining, just wait — the server refuses. */
+  minRemainingSec: 3,
+};
+
+/* ================= CAPACITY UPGRADES (late game) ================= */
+
+/**
+ * Extra machine slots and extra animals. Both cost coins AND $HAY, so the
+ * late game keeps draining the token rather than accumulating it.
+ */
+export const UPGRADES = {
+  machineSlot: {
+    /** Extra slots beyond a machine's base 3. */
+    maxExtra: 3,
+    /** Level required for the 1st, 2nd and 3rd extra slot. */
+    levels: [11, 14, 17],
+    /** Coin cost of the nth extra slot (0-indexed). */
+    coins: [4_000, 12_000, 30_000],
+    hay: ['4', '10', '22'],
+  },
+  penAnimal: {
+    /** Extra animals beyond a pen's base count. */
+    maxExtra: 3,
+    levels: [12, 15, 18],
+    coins: [3_000, 9_000, 24_000],
+    hay: ['3', '8', '18'],
+  },
+};
+
+/* ================= DAILY TASKS + STREAK ================= */
+
+export type TaskKind =
+  | 'plant' | 'harvest' | 'craft' | 'collect_machine'
+  | 'feed' | 'collect_pen' | 'deliver' | 'sell';
+
+export interface TaskTemplate {
+  key: TaskKind;
+  /** How many times the action must happen. */
+  target: number;
+  /** Minimum farm level before this task can be handed out. */
+  lvl: number;
+  coins: number;
+  hay: string;
+  xp: number;
+}
+
+/**
+ * Three tasks a day, drawn from these. Each one is something the player was
+ * going to do anyway — the point is to give the day a shape and a reason to
+ * come back, not to invent busywork.
+ */
+export const TASK_TEMPLATES: TaskTemplate[] = [
+  { key: 'plant', target: 8, lvl: 1, coins: 120, hay: '0.50', xp: 12 },
+  { key: 'harvest', target: 6, lvl: 1, coins: 150, hay: '0.50', xp: 15 },
+  { key: 'craft', target: 3, lvl: 1, coins: 180, hay: '0.75', xp: 18 },
+  { key: 'collect_machine', target: 3, lvl: 1, coins: 160, hay: '0.60', xp: 16 },
+  { key: 'feed', target: 4, lvl: 1, coins: 140, hay: '0.50', xp: 14 },
+  { key: 'collect_pen', target: 4, lvl: 1, coins: 170, hay: '0.60', xp: 17 },
+  { key: 'deliver', target: 2, lvl: 2, coins: 260, hay: '1.00', xp: 26 },
+  { key: 'sell', target: 10, lvl: 2, coins: 130, hay: '0.40', xp: 10 },
+];
+
+export const DAILY = {
+  /** Tasks handed out per day. */
+  taskCount: 3,
+  /** Bonus for finishing all of them. */
+  allDoneBonus: { coins: 400, hay: '2.00', xp: 40 },
+  /**
+   * Login streak. Day 1 pays the first entry, day 7 and beyond the last —
+   * a reason to open the game tomorrow rather than in a week.
+   */
+  streakCoins: [100, 150, 220, 300, 420, 560, 800],
+  streakHay: ['0.50', '0.75', '1.00', '1.50', '2.00', '2.50', '4.00'],
+  /** A streak survives one missed day; two breaks it back to day 1. */
+  streakGraceHours: 48,
+};
+
+/** UTC day key, which is what the daily reset runs on. */
+export function dayKey(now: Date): string {
+  return now.toISOString().slice(0, 10);
+}
+
 /* ================= ORDER BOARD (HANDOFF §2.5) ================= */
 
 export const ORDERS = {
   boardSize: 4,
+  /**
+   * Base seconds an order stays on the board. Without this the truck was a
+   * static list with no reason to act on anything today.
+   */
+  ttlSec: 3600,
   /** Base seconds between auto-refills of an under-full board. */
   refillSec: 8,
   maxDistinctItems: 3,

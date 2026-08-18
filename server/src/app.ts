@@ -6,8 +6,10 @@ import { ZodError } from 'zod';
 import { env } from './env';
 import { GameError } from './lib/errors';
 import { attachSession } from './auth/plugin';
+import adminRoutes from './routes/admin';
 import authRoutes from './routes/auth';
 import configRoutes from './routes/config';
+import dailyRoutes from './routes/daily';
 import expandRoutes from './routes/expand';
 import farmRoutes from './routes/farm';
 import fieldRoutes from './routes/field';
@@ -16,6 +18,9 @@ import machineRoutes from './routes/machine';
 import marketRoutes from './routes/market';
 import orderRoutes from './routes/orders';
 import penRoutes from './routes/pen';
+import profileRoutes from './routes/profile';
+import speedupRoutes from './routes/speedup';
+import upgradeRoutes from './routes/upgrade';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -72,6 +77,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(orderRoutes);
   await app.register(marketRoutes);
   await app.register(expandRoutes);
+  await app.register(speedupRoutes);
+  await app.register(upgradeRoutes);
+  await app.register(dailyRoutes);
+  await app.register(profileRoutes);
+  await app.register(adminRoutes);
   await app.register(hayRoutes);
 
   return app;

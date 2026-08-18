@@ -28,6 +28,8 @@ export interface RawMachine {
   machine: string;
   jobs: MachineJob[];
   done: Record<string, number>;
+  /** Slots bought on top of the machine's base count. */
+  extraSlots?: number;
 }
 
 export interface RawPen {
@@ -60,7 +62,9 @@ export interface ResolvedMachine {
   machine: string;
   jobs: ResolvedJob[];
   done: Record<string, number>;
+  /** Base slots plus any bought — what the player can actually queue. */
   slots: number;
+  extraSlots: number;
   /** Whether the machine is unlocked at the farm's current level. */
   open: boolean;
 }

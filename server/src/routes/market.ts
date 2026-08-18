@@ -8,7 +8,7 @@ import { getBoard, releaseListing, reserveListing } from '../lib/marketCache';
 import { listingPriceValid } from '../engine/market';
 import { give, qtyOf, spaceFor, take } from '../engine/inventory';
 import { prisma } from '../lib/db';
-import { addCoins, grantXp, ledger, runAction, saveFarm } from './_context';
+import { addCoins, bump, grantXp, ledger, runAction, saveFarm } from './_context';
 
 const buyBody = z.object({ listingId: z.string().min(1).max(64) }).strict();
 const sellBody = z.object({
@@ -102,6 +102,7 @@ export default async function marketRoutes(app: FastifyInstance) {
       await ledger(ctx, 'sell', {
         item: body.item, qty, unitPrice: item.sell,
       }, { coins: gain, xp });
+      await bump(ctx, 'sell', qty);
 
       return { notice: { message: `Sold ${qty}× ${item.name} — +${gain}`, icon: 'coin' } };
     });

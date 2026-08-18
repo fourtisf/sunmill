@@ -41,6 +41,10 @@ const schema = z.object({
   TREASURY_ADDRESS: z.string().optional(),
   TREASURY_PRIVATE_KEY: z.string().optional(),
   CHAIN_MIN_CONFIRMATIONS: z.coerce.number().int().nonnegative().default(12),
+
+  // Second factor for the operator routes: a user flagged isAdmin must ALSO
+  // present this header. Unset means /api/admin does not exist at all.
+  ADMIN_TOKEN: z.string().min(24).optional().or(z.literal('').transform(() => undefined)),
 });
 
 const parsed = schema.safeParse(process.env);

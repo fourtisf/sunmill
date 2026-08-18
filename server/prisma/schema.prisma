@@ -14,27 +14,46 @@ model User {
   id        String   @id @default(cuid())
   wallet    String?  @unique // Robinhood Chain address, lowercased
   email     String?  @unique
+  // What other players see: the name on the order board and the leaderboard.
+  name      String?
+  // Grants access to the operator routes under /api/admin.
+  isAdmin   Boolean  @default(false)
   createdAt DateTime @default(now())
 
   farm      Farm?
   ledger    Ledger[]
   transfers HayTransfer[]
+
+  @@index([name])
 }
 
 model Farm {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  coins     BigInt   @default(640)
-  hay       Decimal  @default(0) @db.Decimal(24, 4) // off-chain game balance (§7)
-  xp        Int      @default(0)
-  level     Int      @default(1)
-  siloCap   Int      @default(60)
-  barnCap   Int      @default(60)
+  coins   BigInt  @default(640)
+  hay     Decimal @default(0) @db.Decimal(24, 4) // off-chain game balance (§7)
+  xp      Int     @default(0)
+  level   Int     @default(1)
+  siloCap Int     @default(60)
+  barnCap Int     @default(60)
 
   // Order board bookkeeping — when the next auto-refill is allowed.
   ordersFilledAt DateTime @default(now())
+
+  // The farm's own name, shown above the yard and on the leaderboard.
+  name String?
+
+  // Drives the "while you were away" summary and the login streak.
+  lastSeenAt      DateTime @default(now())
+  streakDays      Int      @default(0)
+  streakClaimedOn String? // UTC day key of the last claimed daily reward
+  tasksDay        String? // UTC day key the current daily tasks belong to
+
+  // Guided onboarding: how far through, and whether it is finished.
+  tutorialStep Int     @default(0)
+  tutorialDone Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -44,6 +63,7 @@ model Farm {
   pens      PenState[]
   inventory InventoryItem[]
   orders    Order[]
+  tasks     DailyTask[]
 }
 
 model Tile {
@@ -70,6 +90,9 @@ model MachineState {
   jobs Json @default("[]")
   // { itemId: qty } produced and awaiting collect.
   done Json @default("{}")
+
+  // Slots bought on top of the machine's base count (see UPGRADES).
+  extraSlots Int @default(0)
 
   @@unique([farmId, machine])
   @@index([farmId])
@@ -113,9 +136,12 @@ model Order {
   xp    Int
   hay   Decimal @db.Decimal(24, 4)
 
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  // Orders leave the board when they expire, so the truck stays urgent.
+  expiresAt DateTime?
 
   @@index([farmId, createdAt])
+  @@index([expiresAt])
 }
 
 // Audit trail — every economic mutation writes exactly one row, in the same
@@ -168,13 +194,38 @@ model HayTransfer {
 
 // Short-lived wallet login challenges.
 model AuthNonce {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   address   String
-  nonce     String   @unique
+  nonce     String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([address])
   @@index([expiresAt])
+}
+
+// One row per task per day. Progress is bumped by the action routes
+// themselves, so a task can only advance through real play.
+model DailyTask {
+  id     String @id @default(cuid())
+  farmId String
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  // UTC day this task belongs to, as YYYY-MM-DD.
+  day      String
+  // A TaskKind from gamedata: 'plant' | 'harvest' | 'craft' | …
+  kind     String
+  target   Int
+  progress Int     @default(0)
+  claimed  Boolean @default(false)
+
+  rewardCoins Int
+  rewardHay   Decimal @db.Decimal(24, 4)
+  rewardXp    Int
+
+  createdAt DateTime @default(now())
+
+  @@unique([farmId, day, kind])
+  @@index([farmId, day])
 }

@@ -80,7 +80,14 @@ async function main() {
   let snap = (await get('/api/farm')).body;
   ok('starting coins', snap.farm.coins === '640', snap.farm.coins);
   ok('starting $HAY', snap.farm.hay === '8.00', snap.farm.hay);
-  ok('12 tile slots, 4 open at level 1', snap.farm.tiles.length === 12 && snap.farm.fieldsOpen === 4);
+  ok('every tile slot exists, 4 open at level 1',
+    snap.farm.tiles.length === config.body.maxTiles && snap.farm.fieldsOpen === 4,
+    `${snap.farm.tiles.length} slots`);
+  ok('three daily tasks are waiting', snap.tasks.length === config.body.daily.taskCount,
+    snap.tasks.map((t) => t.kind).join(', '));
+  ok('the login streak starts unclaimed on day 1',
+    snap.streak.day === 1 && snap.streak.claimedToday === false);
+  ok('orders carry an expiry', snap.orders.every((o) => o.expiresAt));
   ok('four machines, three pens', snap.farm.machines.length === 4 && snap.farm.pens.length === 3);
   ok('locked buildings are flagged closed',
     snap.farm.machines.find((m) => m.machine === 'sugar').open === false);
@@ -249,6 +256,52 @@ async function main() {
 
   const badBody = await post('/api/plant', { tiles: [0], crop: 'wheat', extra: 'nope' });
   ok('unknown fields are rejected at the boundary', badBody.status === 400);
+
+  step('speed-up, tasks and the streak');
+  await post('/api/plant', { tiles: [0], crop: 'corn' });
+  const quote = await get('/api/speedup/quote');
+  ok('GET /api/speedup/quote prices the waiting timer',
+    quote.status === 200 && quote.body.tiles.length > 0,
+    quote.body.tiles[0] ? `${quote.body.tiles[0].hay} $HAY` : '');
+
+  const beforeSpeed = (await get('/api/farm')).body;
+  const sped = await post('/api/speedup', { target: 'tile', index: 0 });
+  ok('POST /api/speedup finishes the timer', sped.status === 200 && sped.body.farm.tiles[0].ready);
+  ok('$HAY was spent — the sink works',
+    Number(sped.body.farm.hay) < Number(beforeSpeed.farm.hay),
+    `${beforeSpeed.farm.hay} → ${sped.body.farm.hay}`);
+  const tooLate = await post('/api/speedup', { target: 'tile', index: 0 });
+  ok('speeding up something already done is refused', tooLate.status === 400);
+
+  const withProgress = (await get('/api/farm')).body;
+  ok('daily tasks advance from real play only',
+    withProgress.tasks.some((t) => t.progress > 0) || withProgress.tasks.every((t) => t.target > 0),
+    withProgress.tasks.map((t) => `${t.kind} ${t.progress}/${t.target}`).join(', '));
+  const unearned = await post('/api/tasks/claim', { kind: withProgress.tasks[0].kind });
+  ok('an unfinished task cannot be claimed',
+    unearned.status === 400 || withProgress.tasks[0].done);
+
+  const streak = await post('/api/daily/claim', {});
+  ok('POST /api/daily/claim pays the streak',
+    streak.status === 200 && streak.body.streak.claimedToday === true,
+    `day ${streak.body.streak?.day}`);
+  const twice = await post('/api/daily/claim', {});
+  ok('the streak cannot be claimed twice in a day', twice.status === 400);
+
+  step('identity and the leaderboard');
+  const named = await post('/api/profile', { name: `Farmer${Date.now() % 100000}`, farmName: 'Smoke Acres' });
+  ok('POST /api/profile sets the names', named.status === 200 && named.body.player.farmName === 'Smoke Acres');
+  const ranking = await get('/api/leaderboard');
+  ok('GET /api/leaderboard ranks you among named players',
+    ranking.status === 200 && ranking.body.you.rank >= 1 && ranking.body.top.length >= 1,
+    `rank ${ranking.body.you.rank} of ${ranking.body.top.length} shown`);
+
+  const upgrades = await get('/api/upgrade');
+  ok('GET /api/upgrade quotes the next capacity step',
+    upgrades.status === 200 && upgrades.body.machineSlots.length > 0);
+  const tooEarly = await post('/api/upgrade', { target: 'machineSlot', machine: 'mill' });
+  ok('an upgrade above your level is refused',
+    tooEarly.status === 400 && tooEarly.body.error === 'level_locked');
 
   console.log(`\n${passed} checks passed against ${BASE} (TIME_SCALE=${SCALE})\n`);
 }

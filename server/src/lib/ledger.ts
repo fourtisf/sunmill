@@ -10,6 +10,7 @@ import { decimal } from './money';
 export type LedgerKind =
   | 'plant' | 'harvest' | 'craft' | 'collect' | 'feed' | 'produce'
   | 'sell' | 'buy' | 'order' | 'order_skip' | 'expand' | 'levelup'
+  | 'speedup' | 'upgrade' | 'task_reward' | 'task_bonus' | 'streak'
   | 'hay_withdraw' | 'hay_deposit';
 
 export interface LedgerInput {

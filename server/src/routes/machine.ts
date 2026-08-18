@@ -7,7 +7,7 @@ import { rateLimit } from '../lib/ratelimit';
 import { give, hasAll, takeAll } from '../engine/inventory';
 import { ALL_MACHINE_IDS, requireMachineUnlocked, saveMachine } from '../engine/farm';
 import { machineToStored, resolveMachine } from '../engine/resolve';
-import { grantXp, ledger, runAction, saveFarm } from './_context';
+import { bump, grantXp, ledger, runAction, saveFarm } from './_context';
 
 const machineId = z.enum(ALL_MACHINE_IDS as [string, ...string[]]);
 
@@ -35,9 +35,10 @@ export default async function machineRoutes(app: FastifyInstance) {
       if (!state) throw errors.notFound('Machine');
 
       // Work from the resolved queue so a job that finished while we were away
-      // has already freed its slot.
+      // has already freed its slot. The limit is the machine's CURRENT slot
+      // count — base plus any bought — not the base from config.
       const view = resolveMachine(state, ctx.now, level);
-      if (view.jobs.length >= def.slots) throw errors.queueFull(def.name);
+      if (view.jobs.length >= view.slots) throw errors.queueFull(def.name);
       if (!hasAll(ctx.state.inventory, recipe.inp)) throw errors.missingItems(recipe.inp);
       if (!takeAll(ctx.state.inventory, recipe.inp)) throw errors.missingItems(recipe.inp);
 
@@ -54,6 +55,7 @@ export default async function machineRoutes(app: FastifyInstance) {
       await ledger(ctx, 'craft', {
         machine: def.id, out: recipe.out, inputs: recipe.inp, seconds: scaled(recipe.sec),
       });
+      await bump(ctx, 'craft');
       return undefined;
     });
   });
@@ -96,6 +98,7 @@ export default async function machineRoutes(app: FastifyInstance) {
       await grantXp(ctx, xp);
       await saveFarm(ctx);
       await ledger(ctx, 'collect', { machine: def.id, items: collected }, { xp });
+      await bump(ctx, 'collect_machine', Object.values(collected).reduce((a, b) => a + b, 0));
 
       if (short) return { notice: { message: 'Barn is full', icon: waiting[0], bad: true } };
       return undefined;

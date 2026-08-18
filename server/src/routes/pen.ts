@@ -7,7 +7,7 @@ import { rateLimit } from '../lib/ratelimit';
 import { give, qtyOf, spaceFor, take } from '../engine/inventory';
 import { ALL_PEN_IDS, requirePenUnlocked, savePen } from '../engine/farm';
 import { penToStored, resolvePen } from '../engine/resolve';
-import { grantXp, ledger, runAction, saveFarm } from './_context';
+import { bump, grantXp, ledger, runAction, saveFarm } from './_context';
 
 const penId = z.enum(ALL_PEN_IDS as [string, ...string[]]);
 
@@ -61,6 +61,7 @@ export default async function penRoutes(app: FastifyInstance) {
       state.animals = stored.animals;
       await savePen(ctx.tx, ctx.state.farm.id, state);
       await ledger(ctx, 'feed', { pen: def.id, fed, feed: def.feed });
+      await bump(ctx, 'feed', fed);
       return undefined;
     });
   });
@@ -105,6 +106,7 @@ export default async function penRoutes(app: FastifyInstance) {
       await grantXp(ctx, xp);
       await saveFarm(ctx);
       await ledger(ctx, 'produce', { pen: def.id, item: def.out, qty: collected }, { xp });
+      await bump(ctx, 'collect_pen', collected);
 
       if (short) return { notice: { message: 'Barn is full', icon: def.out, bad: true } };
       return undefined;

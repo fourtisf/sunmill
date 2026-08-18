@@ -15,6 +15,6 @@ export default async function farmRoutes(app: FastifyInstance) {
       // The board tops up here too, so the truck shows waiting orders whether
       // or not the player has opened the Orders panel.
       await refillBoard(ctx);
-    });
+    }, { touchPresence: true });
   });
 }

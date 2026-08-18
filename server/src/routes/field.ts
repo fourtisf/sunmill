@@ -7,7 +7,7 @@ import { rateLimit } from '../lib/ratelimit';
 import { give, spaceFor } from '../engine/inventory';
 import { requireTileOpen } from '../engine/farm';
 import { resolveTile } from '../engine/resolve';
-import { addCoins, grantXp, ledger, runAction, saveFarm } from './_context';
+import { addCoins, bump, grantXp, ledger, runAction, saveFarm } from './_context';
 
 const plantBody = z.object({
   tiles: z.array(z.number().int().min(0).max(MAX_TILES - 1)).min(1).max(MAX_TILES),
@@ -63,6 +63,7 @@ export default async function fieldRoutes(app: FastifyInstance) {
       await saveFarm(ctx);
       const spent = seedCost * BigInt(planted.length);
       await ledger(ctx, 'plant', { crop: body.crop, tiles: planted, seedCost: item.seed }, { coins: -spent });
+      await bump(ctx, 'plant', planted.length);
 
       if (brokeEarly) {
         return { notice: { message: `Only had coins for ${planted.length}`, icon: body.crop, bad: true } };
@@ -104,6 +105,7 @@ export default async function fieldRoutes(app: FastifyInstance) {
       await grantXp(ctx, item.xp);
       await saveFarm(ctx);
       await ledger(ctx, 'harvest', { crop: cropId, tile: body.tile, got, yield: yieldQty }, { xp: item.xp });
+      await bump(ctx, 'harvest');
 
       if (got < yieldQty) {
         return { notice: { message: 'Silo nearly full — sell or upgrade', icon: cropId, bad: true } };

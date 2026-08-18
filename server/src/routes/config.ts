@@ -5,8 +5,9 @@
  */
 import { FastifyInstance } from 'fastify';
 import {
-  CROPS, EXPAND, FIELD_OPEN, ITEMS, LEVEL_UP_TEXT, MACHINES, MARKET,
-  MAX_TILES, ORDERS, PENS, TIME_SCALE, scaled,
+  CROPS, DAILY, EXPAND, FIELD_OPEN, ITEMS, LEVEL_UP_TEXT, MACHINES, MARKET,
+  MAX_LEVEL_CURVE, MAX_TILES, ORDERS, PENS, SPEEDUP, TASK_TEMPLATES,
+  TIME_SCALE, UPGRADES, scaled,
 } from '../config/gamedata';
 import { env, onChainReady } from '../env';
 import { xpNeed } from '../config/gamedata';
@@ -32,11 +33,21 @@ export default async function configRoutes(app: FastifyInstance) {
     pens: PENS.map((p) => ({ ...p, seconds: scaled(p.sec) })),
     fieldOpen: FIELD_OPEN,
     maxTiles: MAX_TILES,
+    maxLevelCurve: MAX_LEVEL_CURVE,
     levelUpText: LEVEL_UP_TEXT,
     // Pre-computed so the client never re-implements the XP curve.
-    xpCurve: Array.from({ length: 30 }, (_, i) => xpNeed(i + 1)),
+    xpCurve: Array.from({ length: MAX_LEVEL_CURVE + 10 }, (_, i) => xpNeed(i + 1)),
     expand: EXPAND,
-    orders: { boardSize: ORDERS.boardSize },
+    speedup: { hayPerMinute: SPEEDUP.hayPerMinute, minHay: SPEEDUP.minHay, minRemainingSec: SPEEDUP.minRemainingSec },
+    upgrades: UPGRADES,
+    tasks: TASK_TEMPLATES,
+    daily: {
+      taskCount: DAILY.taskCount,
+      allDoneBonus: DAILY.allDoneBonus,
+      streakCoins: DAILY.streakCoins,
+      streakHay: DAILY.streakHay,
+    },
+    orders: { boardSize: ORDERS.boardSize, ttlSeconds: scaled(ORDERS.ttlSec) },
     market: { refreshSeconds: scaled(MARKET.refreshSec) },
     features: {
       hayOnChain: env.HAY_ONCHAIN_ENABLED && onChainReady(),

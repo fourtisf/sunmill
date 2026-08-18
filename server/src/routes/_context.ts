@@ -13,6 +13,10 @@ import { decimal, hayToUnits, unitsToHay } from '../lib/money';
 import { writeLedger } from '../lib/ledger';
 import type { LedgerKind } from '../lib/ledger';
 import { addXp } from '../engine/progression';
+import { ensureTasks, progressTask } from '../engine/dailyTasks';
+import { AWAY_THRESHOLD_SEC, buildAwayReport } from '../engine/awayReport';
+import { dayKey } from '../config/gamedata';
+import type { TaskKind } from '../config/gamedata';
 import { resolveFarm } from '../engine/resolve';
 import {
   buildSnapshot, loadFarm, resolveAndPersist, saveInventory,
@@ -37,13 +41,40 @@ export interface ActionContext {
 export type ActionResult = Pick<Snapshot, 'notice'> | void;
 export type ActionFn = (ctx: ActionContext) => Promise<ActionResult>;
 
+export interface ActionOptions {
+  /**
+   * Mark the player as present and, if they have been gone a while, build the
+   * "while you were away" summary. Only the farm read does this — an action
+   * route would reset the clock before the summary could ever be produced.
+   */
+  touchPresence?: boolean;
+}
+
 /** Run a read or a mutation inside one transaction and return a snapshot. */
-export async function runAction(userId: string, fn: ActionFn): Promise<Snapshot> {
+export async function runAction(
+  userId: string, fn: ActionFn, options: ActionOptions = {},
+): Promise<Snapshot> {
   const now = new Date();
   return prisma.$transaction(async (tx) => {
     const state = await loadFarm(tx, userId);
     const inventoryBefore = { ...state.inventory };
     const resolved = await resolveAndPersist(tx, state, now);
+
+    // Today's tasks exist before the action runs, so the action can advance them.
+    state.tasks = await ensureTasks(tx, state.farm.id, state.farm.level, now);
+    const today = dayKey(now);
+    if (state.farm.tasksDay !== today) {
+      state.farm.tasksDay = today;
+      await tx.farm.update({ where: { id: state.farm.id }, data: { tasksDay: today } });
+    }
+
+    let away: Snapshot['away'];
+    if (options.touchPresence) {
+      away = buildAwayReport(resolved, state.farm.lastSeenAt, now) ?? undefined;
+      if (now.getTime() - state.farm.lastSeenAt.getTime() > AWAY_THRESHOLD_SEC * 1000) {
+        await tx.farm.update({ where: { id: state.farm.id }, data: { lastSeenAt: now } });
+      }
+    }
 
     const ctx: ActionContext = {
       tx, userId, state, resolved, now, inventoryBefore, levelsGained: [],
@@ -51,6 +82,11 @@ export async function runAction(userId: string, fn: ActionFn): Promise<Snapshot>
     const extras = (await fn(ctx)) ?? {};
 
     await saveInventory(tx, state.farm.id, inventoryBefore, state.inventory);
+
+    // Reload tasks: the action may have advanced them.
+    state.tasks = await tx.dailyTask.findMany({
+      where: { farmId: state.farm.id, day: today },
+    });
 
     // Re-resolve from the mutated state so the response shows the new farm.
     const after = resolveFarm(
@@ -60,9 +96,18 @@ export async function runAction(userId: string, fn: ActionFn): Promise<Snapshot>
 
     return buildSnapshot(state, after, now, {
       ...extras,
+      away,
       levelsGained: ctx.levelsGained.length ? ctx.levelsGained : undefined,
     });
   }, { timeout: 15_000 });
+}
+
+/**
+ * Tell the daily tasks that the player did something. Runs in the action's own
+ * transaction, so progress can only ever come from real play.
+ */
+export async function bump(ctx: ActionContext, kind: TaskKind, amount = 1): Promise<void> {
+  await progressTask(ctx.tx, ctx.state.farm.id, kind, amount, ctx.now);
 }
 
 /* ================= BALANCE MUTATORS ================= */

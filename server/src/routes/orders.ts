@@ -9,7 +9,7 @@ import { cacheDel, cacheGet, cacheSet, keys } from '../lib/redis';
 import { orderItemsValid, orderReward } from '../engine/orders';
 import { refillBoard } from '../engine/orderBoard';
 import { takeAll } from '../engine/inventory';
-import { addCoins, addHay, grantXp, ledger, runAction, saveFarm } from './_context';
+import { addCoins, addHay, bump, grantXp, ledger, runAction, saveFarm } from './_context';
 
 const idBody = z.object({ orderId: z.string().min(1).max(64) }).strict();
 
@@ -89,6 +89,7 @@ export default async function orderRoutes(app: FastifyInstance) {
         orderId: order.id, who: order.who, items: order.items,
       }, { coins: BigInt(reward.coins), hay: reward.hay, xp: reward.xp });
 
+      await bump(ctx, 'deliver');
       await refillBoard(ctx, true);
       await cacheDel(keys.orders(ctx.state.farm.id));
 

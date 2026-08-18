@@ -10,6 +10,9 @@ import {
 import { errors } from '../lib/errors';
 import { hayString } from '../lib/money';
 import type { Tx } from '../lib/db';
+import { streakState } from './dailyTasks';
+import type { TaskRow } from './dailyTasks';
+import type { AwayReport } from './awayReport';
 import { used } from './inventory';
 import type { Inventory } from './inventory';
 import { xpToNext } from './progression';
@@ -21,6 +24,7 @@ import type {
 export interface FarmRow {
   id: string;
   userId: string;
+  name: string | null;
   coins: bigint;
   hay: Prisma.Decimal;
   xp: number;
@@ -28,6 +32,12 @@ export interface FarmRow {
   siloCap: number;
   barnCap: number;
   ordersFilledAt: Date;
+  lastSeenAt: Date;
+  streakDays: number;
+  streakClaimedOn: string | null;
+  tasksDay: string | null;
+  tutorialStep: number;
+  tutorialDone: boolean;
 }
 
 export interface OrderRow {
@@ -38,15 +48,20 @@ export interface OrderRow {
   xp: number;
   hay: Prisma.Decimal;
   createdAt: Date;
+  expiresAt: Date | null;
 }
 
 export interface FarmState {
   farm: FarmRow;
+  /** The player's display name — what other farms see on the board. */
+  playerName: string | null;
   tiles: RawTile[];
   machines: RawMachine[];
   pens: RawPen[];
   inventory: Inventory;
   orders: OrderRow[];
+  /** Today's tasks, loaded alongside the farm. */
+  tasks: TaskRow[];
 }
 
 const farmInclude = {
@@ -79,7 +94,10 @@ function asItems(value: unknown): Record<string, number> {
 
 /** Load everything a route needs, in one round trip. */
 export async function loadFarm(tx: Tx, userId: string): Promise<FarmState> {
-  const row = await tx.farm.findUnique({ where: { userId }, include: farmInclude });
+  const row = await tx.farm.findUnique({
+    where: { userId },
+    include: { ...farmInclude, user: { select: { name: true } } },
+  });
   if (!row) throw errors.notFound('Farm');
 
   const inventory: Inventory = {};
@@ -89,6 +107,7 @@ export async function loadFarm(tx: Tx, userId: string): Promise<FarmState> {
     farm: {
       id: row.id,
       userId: row.userId,
+      name: row.name,
       coins: row.coins,
       hay: row.hay,
       xp: row.xp,
@@ -96,17 +115,25 @@ export async function loadFarm(tx: Tx, userId: string): Promise<FarmState> {
       siloCap: row.siloCap,
       barnCap: row.barnCap,
       ordersFilledAt: row.ordersFilledAt,
+      lastSeenAt: row.lastSeenAt,
+      streakDays: row.streakDays,
+      streakClaimedOn: row.streakClaimedOn,
+      tasksDay: row.tasksDay,
+      tutorialStep: row.tutorialStep,
+      tutorialDone: row.tutorialDone,
     },
+    playerName: row.user?.name ?? null,
     tiles: row.tiles.map((t) => ({ index: t.index, crop: t.crop, plantedAt: t.plantedAt })),
     machines: row.machines.map((m) => ({
-      machine: m.machine, jobs: asJobs(m.jobs), done: asDone(m.done),
+      machine: m.machine, jobs: asJobs(m.jobs), done: asDone(m.done), extraSlots: m.extraSlots,
     })),
     pens: row.pens.map((p) => ({ pen: p.pen, animals: asAnimals(p.animals) })),
     inventory,
     orders: row.orders.map((o) => ({
       id: o.id, who: o.who, items: asItems(o.items),
-      coins: o.coins, xp: o.xp, hay: o.hay, createdAt: o.createdAt,
+      coins: o.coins, xp: o.xp, hay: o.hay, createdAt: o.createdAt, expiresAt: o.expiresAt,
     })),
+    tasks: [],
   };
 }
 
@@ -131,6 +158,7 @@ export async function resolveAndPersist(tx: Tx, state: FarmState, now: Date): Pr
     });
     const local = state.machines.find((m) => m.machine === id);
     if (local) { local.jobs = stored.jobs; local.done = stored.done; }
+    // extraSlots is never changed by resolution, only by an upgrade.
   }
 
   for (const id of resolved.dirtyPens) {
@@ -176,6 +204,7 @@ export async function saveMachine(tx: Tx, farmId: string, machine: RawMachine): 
     data: {
       jobs: machine.jobs as unknown as Prisma.InputJsonValue,
       done: machine.done as unknown as Prisma.InputJsonValue,
+      ...(machine.extraSlots == null ? {} : { extraSlots: machine.extraSlots }),
     },
   });
 }
@@ -192,6 +221,10 @@ export async function savePen(tx: Tx, farmId: string, pen: RawPen): Promise<void
 export interface Snapshot {
   serverTime: string;
   timeScale: number;
+  player: {
+    name: string | null;
+    farmName: string | null;
+  };
   farm: {
     id: string;
     coins: string;
@@ -212,9 +245,22 @@ export interface Snapshot {
   orders: Array<{
     id: string; who: string; items: Record<string, number>;
     coins: number; xp: number; hay: string; canFill: boolean;
+    expiresAt: string | null;
   }>;
+  /** Today's three tasks, with live progress. */
+  tasks: Array<{
+    kind: string; target: number; progress: number; done: boolean; claimed: boolean;
+    coins: number; hay: string; xp: number;
+  }>;
+  /** Login streak: which day it is and what claiming it pays. */
+  streak: {
+    day: number; claimedToday: boolean; coins: number; hay: string; nextInSec: number;
+  };
+  tutorial: { step: number; done: boolean };
   /** Levels reached by the action that produced this snapshot, in order. */
   levelsGained?: number[];
+  /** Present only on the first read after a real absence. */
+  away?: AwayReport;
   /** Anything the server wants the client to say out loud. */
   notice?: { message: string; icon?: string; bad?: boolean };
 }
@@ -223,12 +269,16 @@ export function buildSnapshot(
   state: FarmState,
   resolved: ResolvedFarm,
   now: Date,
-  extras: Pick<Snapshot, 'levelsGained' | 'notice'> = {},
+  extras: Pick<Snapshot, 'levelsGained' | 'notice' | 'away'> = {},
 ): Snapshot {
   const inv = state.inventory;
+  const streak = streakState(
+    state.farm.streakDays, state.farm.streakClaimedOn, state.farm.lastSeenAt, now,
+  );
   return {
     serverTime: now.toISOString(),
     timeScale: TIME_SCALE,
+    player: { name: state.playerName, farmName: state.farm.name },
     farm: {
       id: state.farm.id,
       coins: state.farm.coins.toString(),
@@ -254,7 +304,26 @@ export function buildSnapshot(
       xp: o.xp,
       hay: hayString(o.hay),
       canFill: Object.keys(o.items).every((k) => (inv[k] ?? 0) >= o.items[k]),
+      expiresAt: o.expiresAt ? o.expiresAt.toISOString() : null,
     })),
+    tasks: state.tasks.map((t) => ({
+      kind: t.kind,
+      target: t.target,
+      progress: t.progress,
+      done: t.progress >= t.target,
+      claimed: t.claimed,
+      coins: t.rewardCoins,
+      hay: hayString(t.rewardHay),
+      xp: t.rewardXp,
+    })),
+    streak: {
+      day: streak.day,
+      claimedToday: streak.claimedToday,
+      coins: streak.coins,
+      hay: streak.hay,
+      nextInSec: streak.nextInSec,
+    },
+    tutorial: { step: state.farm.tutorialStep, done: state.farm.tutorialDone },
     ...extras,
   };
 }

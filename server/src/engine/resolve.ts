@@ -68,7 +68,8 @@ export function resolveTile(tile: RawTile, now: Date, level: number): ResolvedTi
  */
 export function resolveMachine(state: RawMachine, now: Date, level: number): ResolvedMachine & { changed: boolean } {
   const def = machineDef(state.machine);
-  const slots = def?.slots ?? 0;
+  const extraSlots = state.extraSlots ?? 0;
+  const slots = (def?.slots ?? 0) + extraSlots;
   const open = def ? level >= def.lvl : false;
 
   const done: Record<string, number> = { ...state.done };
@@ -106,13 +107,14 @@ export function resolveMachine(state: RawMachine, now: Date, level: number): Res
     cursor = endsAt;
   }
 
-  return { machine: state.machine, jobs, done, slots, open, changed };
+  return { machine: state.machine, jobs, done, slots, extraSlots, open, changed };
 }
 
 /** The stored form of a resolved machine — only the head keeps a start time. */
 export function machineToStored(resolved: ResolvedMachine): RawMachine {
   return {
     machine: resolved.machine,
+    extraSlots: resolved.extraSlots,
     jobs: resolved.jobs.map((j, i) => ({
       out: j.out,
       sec: j.sec,
@@ -175,7 +177,10 @@ export function resolveFarm(input: ResolveInput, now: Date): ResolvedFarm {
       ?? { machine: def.id, jobs: [], done: {} };
     const r = resolveMachine(raw, now, input.level);
     if (r.changed) dirtyMachines.push(def.id);
-    machines.push({ machine: r.machine, jobs: r.jobs, done: r.done, slots: r.slots, open: r.open });
+    machines.push({
+      machine: r.machine, jobs: r.jobs, done: r.done,
+      slots: r.slots, extraSlots: r.extraSlots, open: r.open,
+    });
   }
 
   const dirtyPens: string[] = [];
