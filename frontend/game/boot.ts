@@ -96,7 +96,7 @@ function showLogin() {
   if (!card || card.dataset.mode === 'login') { intro.classList.remove('gone'); intro.style.display = ''; return }
   card.dataset.mode = 'login';
   card.innerHTML =
-    '<div class="logo">SUNMILL</div>'
+    '<img class="brandmark" src="/brand/sunmill-logo-stacked.svg" alt="SUNMILL" width="760" height="600">'
     + '<div class="tl">' + t('intro.tagline') + '</div>'
     + '<p>' + t('login.blurb') + '</p>'
     + '<div id="loginErr" class="hint" style="display:none"><span class="d"></span><span id="loginErrTxt"></span></div>'

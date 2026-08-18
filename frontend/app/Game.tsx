@@ -38,7 +38,8 @@ export default function Game() {
       <div id="lvlup"><div className="lu" id="luBody" /></div>
       <div id="intro">
         <div className="icard panel">
-          <div className="logo">SUNMILL</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="brandmark" src="/brand/sunmill-logo-stacked.svg" alt="SUNMILL" width={760} height={600} />
           <div className="tl" id="introTagline">Farm &amp; Craft Tycoon</div>
           <p id="introBlurb">A production-chain farm on Robinhood Chain. Grow crops, feed animals, run the machines, fill the truck.</p>
           <div className="hint">

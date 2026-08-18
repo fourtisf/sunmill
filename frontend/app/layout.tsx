@@ -4,6 +4,19 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'SUNMILL — Farm & Craft Tycoon',
   description: 'A production-chain farm on Robinhood Chain. Grow crops, feed animals, run the machines, fill the truck.',
+  applicationName: 'SUNMILL',
+  manifest: '/manifest.webmanifest',
+  // app/icon.png, app/apple-icon.png and app/opengraph-image.png are picked up
+  // by the file convention; they are generated from public/brand by
+  // scripts/build-brand-assets.mjs.
+  appleWebApp: { capable: true, title: 'SUNMILL', statusBarStyle: 'black-translucent' },
+  openGraph: {
+    type: 'website',
+    siteName: 'SUNMILL',
+    title: 'SUNMILL — Farm & Craft Tycoon',
+    description: 'Grow crops, feed animals, run the machines, fill the truck.',
+  },
+  twitter: { card: 'summary_large_image', title: 'SUNMILL — Farm & Craft Tycoon' },
 };
 
 export const viewport: Viewport = {

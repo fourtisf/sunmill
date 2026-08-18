@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SUNMILL">
+  <title>SUNMILL</title>
+  <!-- The favicon cut: same silhouette with the lattice, door, rays and gloss
+       stripped out, because none of that survives 16 pixels. -->
+  <circle cx="256" cy="256" r="222" fill="#F6C94F"/>
+  <path d="M186 424 L214 268 L298 268 L326 424 Z" fill="#2C1705"/>
+  <path d="M202 274 Q256 206 310 274 Z" fill="#2C1705"/>
+  <rect x="170" y="410" width="172" height="30" rx="14" fill="#2C1705"/>
+  <g transform="rotate(45 256 236)">
+    <g fill="#FFF4D4" stroke="#2C1705" stroke-width="15" stroke-linejoin="round">
+      <path d="M240 240 L222 116 Q256 90 290 116 L272 240 Z"/>
+      <path d="M240 240 L222 116 Q256 90 290 116 L272 240 Z" transform="rotate(90 256 236)"/>
+      <path d="M240 240 L222 116 Q256 90 290 116 L272 240 Z" transform="rotate(180 256 236)"/>
+      <path d="M240 240 L222 116 Q256 90 290 116 L272 240 Z" transform="rotate(270 256 236)"/>
+    </g>
+  </g>
+  <circle cx="256" cy="236" r="30" fill="#2C1705"/>
+  <circle cx="256" cy="256" r="222" fill="none" stroke="#2C1705" stroke-width="24"/>
+</svg>

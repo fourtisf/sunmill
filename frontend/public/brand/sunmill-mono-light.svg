@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" color="#FFF4D4" role="img" aria-label="SUNMILL">
+  <title>SUNMILL</title>
+  <!-- One colour, for stamps, embossing, and anywhere the gold cannot go.
+       The hub sits higher and the sails are shorter than in the full mark: with
+       no second colour to separate them, sails that crossed the tower would
+       merge into one blob. Set `color` to recolour. -->
+  <g fill="currentColor" stroke="currentColor" stroke-linejoin="round">
+    <circle cx="256" cy="256" r="223" fill="none" stroke-width="19"/>
+    <path d="M192 424 L218 282 L294 282 L320 424 Z" stroke-width="8"/>
+    <path d="M210 286 Q256 232 302 286 Z" stroke-width="8"/>
+    <rect x="178" y="412" width="156" height="24" rx="11" stroke="none"/>
+    <g transform="rotate(45 256 214)" stroke-width="8">
+      <path d="M245 218 L232 116 Q256 96 280 116 L267 218 Z"/>
+      <path d="M245 218 L232 116 Q256 96 280 116 L267 218 Z" transform="rotate(90 256 214)"/>
+      <path d="M245 218 L232 116 Q256 96 280 116 L267 218 Z" transform="rotate(180 256 214)"/>
+      <path d="M245 218 L232 116 Q256 96 280 116 L267 218 Z" transform="rotate(270 256 214)"/>
+    </g>
+    <circle cx="256" cy="214" r="25" stroke="none"/>
+  </g>
+</svg>

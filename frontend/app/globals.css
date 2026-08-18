@@ -459,3 +459,9 @@ body{
 }
 .speed-btn:disabled{filter:grayscale(.6); opacity:.6; cursor:default}
 .speed-btn svg{width:15px; height:15px}
+
+/* ---------- brand lockup on the intro / login card ---------- */
+.icard .brandmark{
+  display:block; width:min(210px, 52vw); height:auto; margin:0 auto 2px;
+  filter:drop-shadow(0 3px 0 rgba(255,255,255,.55));
+}
