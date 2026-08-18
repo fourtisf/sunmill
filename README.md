@@ -256,6 +256,15 @@ the letters, so there is no font to load or licence. Raster sizes are generated
 from those vectors by `frontend/scripts/build-brand-assets.mjs`, never
 hand-edited. Usage rules, palette and minimum sizes: `docs/BRAND.md`.
 
+## Closed beta
+
+`INVITE_CODE` in `.env` puts a code gate on the landing page. It is enforced on
+the server — no route that can open a session will do so without the cookie the
+gate sets — so the code never ships to the browser and a client-side bypass buys
+nothing. Unset means no gate, which is what local development and CI want.
+Rotation, limits and what the gate does *not* protect against: `docs/RUNBOOK.md`
+§10.
+
 ## The art engine is off limits
 
 `frontend/game/art.ts` and `art2.ts` are the prototype's `art.js` and `art2.js`

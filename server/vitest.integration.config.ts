@@ -10,6 +10,8 @@ export default defineConfig({
     testTimeout: 60_000,
     hookTimeout: 30_000,
     // Silences the API's request logger — see buildApp().
-    env: { NODE_ENV: 'test' },
+    // INVITE_CODE is cleared so the suite exercises the game rather than the
+    // beta gate; invite.test.ts sets its own code before importing the app.
+    env: { NODE_ENV: 'test', INVITE_CODE: '' },
   },
 });

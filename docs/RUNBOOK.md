@@ -209,7 +209,44 @@ before the economy is settled.
 
 ---
 
-## 10. Operator tools
+## 10. Closed beta
+
+`INVITE_CODE` gates the landing page. It is checked on the server, not in the
+browser: `POST /api/invite` compares the posted code and, on a match, sets a
+signed httpOnly cookie. Every route that can open a session — the wallet nonce,
+the wallet login, the dev login — refuses without that cookie. So deleting the
+overlay in devtools or calling the API directly gets nobody in.
+
+```bash
+# turn the gate on
+INVITE_CODE=some-long-code-here    # then restart sunmill-api
+
+# rotate it — everyone already through keeps their cookie until it expires
+INVITE_CODE=a-different-one
+
+# turn it off (public launch)
+INVITE_CODE=
+```
+
+Unset means **no gate**: anyone can create an account. That is the right state
+for local development and CI, and the API says so loudly at boot in production.
+
+Two things worth knowing before you pick a code:
+
+- **Length is the whole defence.** `POST /api/invite` allows 10 attempts per IP
+  per 10 minutes, which makes a four-digit code take about a week to exhaust
+  from one address — and roughly an hour from a hundred. For a small private
+  beta that is fine. Before any public announcement, use something long.
+- **A code is shared, not per-player.** The first person through can pass it on.
+  If you need to know who let whom in, that is a different feature: per-user
+  invite rows with a redeemed-by column, not one shared string.
+
+`INVITE_TTL_SECONDS` (default 30 days) is how long a browser stays through the
+gate once it has passed.
+
+---
+
+## 11. Operator tools
 
 Withdrawals at or above `HAY_WITHDRAW_REVIEW_THRESHOLD` are held: the player's
 game hay is already debited and the transfer row exists, but nothing is

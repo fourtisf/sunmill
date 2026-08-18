@@ -45,6 +45,10 @@ export const api = {
   config: () => request<GameConfig>('GET', '/api/config'),
   me: () => request<{ authenticated: boolean }>('GET', '/api/auth/me'),
 
+  invite: () => request<{ required: boolean; ok: boolean }>('GET', '/api/invite'),
+  redeemInvite: (code: string) =>
+    request<{ ok: true; required: boolean }>('POST', '/api/invite', { code }),
+
   nonce: (address: string) =>
     request<{ nonce: string; message: string }>('POST', '/api/auth/nonce', { address }),
   loginWallet: (address: string, signature: string) =>

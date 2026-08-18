@@ -13,8 +13,11 @@
  */
 const BASE = process.argv[2] || process.env.API_URL || 'http://127.0.0.1:4000';
 
-let cookie = '';
+const jar = new Map();
 let passed = 0;
+
+const cookieHeader = () =>
+  [...jar.entries()].map(([k, v]) => `${k}=${v}`).join('; ');
 
 function ok(label, condition, extra = '') {
   if (!condition) {
@@ -34,12 +37,19 @@ async function call(method, path, body) {
     method,
     headers: {
       'content-type': 'application/json',
-      ...(cookie ? { cookie } : {}),
+      ...(jar.size ? { cookie: cookieHeader() } : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const setCookie = res.headers.get('set-cookie');
-  if (setCookie) cookie = setCookie.split(';')[0];
+  if (setCookie) {
+    // One header may carry several cookies; split on the comma that precedes a
+    // new name=value pair rather than the ones inside Expires dates.
+    for (const part of setCookie.split(/,(?=\s*[^;=,]+=)/)) {
+      const [name, ...rest] = part.trim().split(';')[0].split('=');
+      if (name) jar.set(name, rest.join('='));
+    }
+  }
   const text = await res.text();
   let json;
   try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
@@ -72,6 +82,30 @@ async function main() {
 
   const anon = await get('/api/farm');
   ok('GET /api/farm rejects an anonymous caller', anon.status === 401);
+
+  // The closed-beta gate, when this deployment has one. Proving it is shut
+  // before proving it opens is the whole point: a gate that only ever gets
+  // tested with the right code is not known to be a gate at all.
+  const gate = await get('/api/invite');
+  ok('GET /api/invite reports the gate', gate.status === 200,
+    gate.body.required ? 'code required' : 'no code configured');
+  if (gate.body.required) {
+    const blocked = await post('/api/auth/dev', { handle: `smoke-blocked-${Date.now()}` });
+    ok('no session without the invite code', blocked.status === 403
+      && blocked.body.error === 'invite_required');
+
+    const code = process.env.INVITE_CODE;
+    if (!code) {
+      console.error('\n  FAIL  the API gates on an invite code but INVITE_CODE is not set for this run');
+      process.exit(1);
+    }
+    const wrong = await post('/api/invite', { code: `${code}x` });
+    ok('a wrong invite code is refused', wrong.status === 403
+      && wrong.body.error === 'invite_invalid');
+
+    const pass = await post('/api/invite', { code });
+    ok('the right invite code opens the gate', pass.status === 200 && pass.body.ok);
+  }
 
   const login = await post('/api/auth/dev', { handle: `smoke-${Date.now()}` });
   ok('POST /api/auth/dev', login.status === 200 && login.body.ok);

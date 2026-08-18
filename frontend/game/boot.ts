@@ -90,11 +90,87 @@ function scheduleSync() {
 
 /* ================= LOGIN ================= */
 
-function showLogin() {
+/**
+ * The gate has to clear before any login button exists. The server refuses to
+ * mint a session without the invite cookie, so showing the buttons first would
+ * only produce a 403 the player has no way to act on.
+ */
+async function showLogin() {
+  try {
+    const gate = await api.invite();
+    if (gate.required && !gate.ok) return showInvite();
+  } catch {
+    // Server unreachable — fall through to the login card, which says so when
+    // the player taps. Better than stranding them on a code box that cannot
+    // be checked.
+  }
+  renderLogin();
+}
+
+function showCard(mode: string): HTMLElement | null {
   const intro = document.getElementById('intro');
-  const card = intro.querySelector('.icard');
-  if (!card || card.dataset.mode === 'login') { intro.classList.remove('gone'); intro.style.display = ''; return }
-  card.dataset.mode = 'login';
+  const card = intro.querySelector('.icard') as HTMLElement | null;
+  intro.classList.remove('gone');
+  (intro as HTMLElement).style.display = '';
+  if (!card || card.dataset.mode === mode) return null;
+  card.dataset.mode = mode;
+  return card;
+}
+
+function showInvite() {
+  const card = showCard('invite');
+  if (!card) return;
+  card.innerHTML =
+    '<img class="brandmark" src="/brand/sunmill-logo-stacked.svg" alt="SUNMILL" width="760" height="600">'
+    + '<div class="tl">' + t('invite.title') + '</div>'
+    + '<p>' + t('invite.blurb') + '</p>'
+    + '<div class="field" style="text-align:left">'
+    + '<label for="inviteCode">' + t('invite.label') + '</label>'
+    + '<input id="inviteCode" type="text" inputmode="numeric" autocomplete="one-time-code"'
+    + ' maxlength="64" spellcheck="false">'
+    + '</div>'
+    + '<div id="inviteErr" class="form-err" style="display:none"></div>'
+    + '<button class="btn gold go" id="btnInvite">' + t('invite.submit') + '</button>';
+
+  const input = document.getElementById('inviteCode') as HTMLInputElement;
+  const btn = document.getElementById('btnInvite') as HTMLButtonElement;
+  const err = document.getElementById('inviteErr') as HTMLElement;
+  input.focus();
+
+  let busy = false;
+  const submit = async () => {
+    if (busy) return;
+    const code = input.value.trim();
+    if (!code) return input.focus();
+    busy = true;
+    btn.disabled = true;
+    btn.textContent = t('invite.checking');
+    err.style.display = 'none';
+    unlockAudio();
+    try {
+      await api.redeemInvite(code);
+      renderLogin();
+    } catch (e) {
+      const net = e instanceof NetError ? e : null;
+      err.textContent = net && net.code === 'invite_invalid' ? t('invite.wrong')
+        : net && net.status === 429 ? t('invite.tooMany')
+        : t('invite.failed');
+      err.style.display = '';
+      input.select();
+    } finally {
+      busy = false;
+      btn.disabled = false;
+      btn.textContent = t('invite.submit');
+    }
+  };
+
+  btn.addEventListener('click', submit);
+  input.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') submit() });
+}
+
+function renderLogin() {
+  const card = showCard('login');
+  if (!card) return;
   card.innerHTML =
     '<img class="brandmark" src="/brand/sunmill-logo-stacked.svg" alt="SUNMILL" width="760" height="600">'
     + '<div class="tl">' + t('intro.tagline') + '</div>'
@@ -104,8 +180,6 @@ function showLogin() {
     + (cfg().features.devLogin
       ? '<button class="btn wood go" id="btnGuest" style="margin-top:10px">' + t('login.guest') + '</button>'
       : '');
-  intro.classList.remove('gone');
-  intro.style.display = '';
 
   const fail = (msg) => {
     const box = document.getElementById('loginErr');

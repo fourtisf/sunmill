@@ -14,6 +14,7 @@ import expandRoutes from './routes/expand';
 import farmRoutes from './routes/farm';
 import fieldRoutes from './routes/field';
 import hayRoutes from './routes/hay';
+import inviteRoutes from './routes/invite';
 import machineRoutes from './routes/machine';
 import marketRoutes from './routes/market';
 import orderRoutes from './routes/orders';
@@ -69,6 +70,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   await app.register(configRoutes);
+  await app.register(inviteRoutes);
   await app.register(authRoutes);
   await app.register(farmRoutes);
   await app.register(fieldRoutes);

@@ -8,6 +8,7 @@ import { createFarm, ensureFarmShape } from '../engine/bootstrap';
 import {
   clearSessionCookie, requireAuth, setSessionCookie,
 } from '../auth/plugin';
+import { requireInvite } from '../auth/invite';
 import { signSession } from '../auth/tokens';
 import {
   NONCE_TTL_SECONDS, challengeMessage, isAddress, makeNonce,
@@ -23,6 +24,7 @@ const walletBody = z.object({
 export default async function authRoutes(app: FastifyInstance) {
   /** POST /api/auth/nonce — issue a one-time challenge for a wallet. */
   app.post('/api/auth/nonce', async (req) => {
+    requireInvite(req);
     const { address } = nonceBody.parse(req.body);
     if (!isAddress(address)) throw errors.badRequest('Not a wallet address');
     const wallet = normaliseAddress(address);
@@ -45,6 +47,7 @@ export default async function authRoutes(app: FastifyInstance) {
 
   /** POST /api/auth/wallet — verify the signature, open a session. */
   app.post('/api/auth/wallet', async (req, reply) => {
+    requireInvite(req);
     const body = walletBody.parse(req.body);
     if (!isAddress(body.address)) throw errors.badRequest('Not a wallet address');
     const wallet = normaliseAddress(body.address);
@@ -94,6 +97,7 @@ export default async function authRoutes(app: FastifyInstance) {
    */
   app.post('/api/auth/dev', async (req, reply) => {
     if (env.isProd) throw errors.notFound('Route');
+    requireInvite(req);
     const { handle } = z.object({ handle: z.string().min(1).max(64) }).strict().parse(req.body);
     const email = `${handle.toLowerCase()}@dev.local`;
 

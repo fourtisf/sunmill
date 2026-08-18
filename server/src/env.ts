@@ -42,6 +42,12 @@ const schema = z.object({
   TREASURY_PRIVATE_KEY: z.string().optional(),
   CHAIN_MIN_CONFIRMATIONS: z.coerce.number().int().nonnegative().default(12),
 
+  // Closed-beta gate. Unset means no gate — anyone can create an account.
+  // When set, no session can be opened without posting this code first.
+  INVITE_CODE: z.string().min(1).optional().or(z.literal('').transform(() => undefined)),
+  INVITE_COOKIE_NAME: z.string().default('sunmill_invite'),
+  INVITE_TTL_SECONDS: z.coerce.number().int().positive().default(60 * 60 * 24 * 30),
+
   // Second factor for the operator routes: a user flagged isAdmin must ALSO
   // present this header. Unset means /api/admin does not exist at all.
   ADMIN_TOKEN: z.string().min(24).optional().or(z.literal('').transform(() => undefined)),
@@ -73,6 +79,11 @@ export function onChainReady(): boolean {
     && env.TREASURY_ADDRESS
     && env.TREASURY_PRIVATE_KEY,
   );
+}
+
+if (env.isProd && !env.INVITE_CODE) {
+  // eslint-disable-next-line no-console
+  console.warn('[sunmill] INVITE_CODE unset — the beta gate is open and anyone can create an account.');
 }
 
 if (env.isProd && !env.COOKIE_SECURE) {

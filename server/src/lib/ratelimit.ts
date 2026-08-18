@@ -23,6 +23,9 @@ export const LIMITS = {
   read: { points: 240, windowSec: 60 },
   auth: { points: 20, windowSec: 300 },
   hay: { points: 6, windowSec: 3600 },
+  // Guessing a short invite code is the one thing here worth brute-forcing,
+  // so this bucket is an order of magnitude tighter than the auth ones.
+  invite: { points: 10, windowSec: 600 },
 } satisfies Record<string, Limit>;
 
 export async function consume(userId: string, bucket: string, limit: Limit): Promise<void> {
