@@ -58,10 +58,16 @@ Fill in `.env`. The ones that matter in production:
 ## 3. Build and migrate
 
 ```bash
-npm ci
+npm ci                                       # also generates the Prisma client
 npm run prisma:deploy --workspace=server     # applies migrations, never resets
 npm run build                                # server tsc + next build
 ```
+
+`npm ci` runs the server's `postinstall`, which generates the Prisma client.
+Without it `tsc` cannot see `Prisma.Decimal` or `Prisma.InputJsonValue` and the
+build dies in about eight files — the generated client is a build input, not a
+runtime detail. Install dev dependencies here: `prisma`, `typescript` and `next`
+all live there, and this deploy builds from source.
 
 `prisma migrate deploy` is the production command — it applies pending
 migrations and nothing else. Never run `migrate dev` or `migrate reset` against
