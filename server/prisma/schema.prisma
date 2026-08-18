@@ -1,0 +1,180 @@
+// SUNMILL — data model (HANDOFF §5).
+// Money: coins are BigInt, hay is Decimal. Never floats for balances.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  wallet    String?  @unique // Robinhood Chain address, lowercased
+  email     String?  @unique
+  createdAt DateTime @default(now())
+
+  farm      Farm?
+  ledger    Ledger[]
+  transfers HayTransfer[]
+}
+
+model Farm {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  coins     BigInt   @default(640)
+  hay       Decimal  @default(0) @db.Decimal(24, 4) // off-chain game balance (§7)
+  xp        Int      @default(0)
+  level     Int      @default(1)
+  siloCap   Int      @default(60)
+  barnCap   Int      @default(60)
+
+  // Order board bookkeeping — when the next auto-refill is allowed.
+  ordersFilledAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tiles     Tile[]
+  machines  MachineState[]
+  pens      PenState[]
+  inventory InventoryItem[]
+  orders    Order[]
+}
+
+model Tile {
+  id        String    @id @default(cuid())
+  farmId    String
+  farm      Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  index     Int // 0..N field slot
+  crop      String? // item id or null
+  plantedAt DateTime?
+
+  @@unique([farmId, index])
+  @@index([farmId])
+}
+
+model MachineState {
+  id      String @id @default(cuid())
+  farmId  String
+  farm    Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  machine String // 'mill' | 'bakery' | 'dairy' | 'sugar'
+
+  // [{ out, sec, startedAt }] — head is the active job; only the head carries
+  // startedAt. Queued jobs start when the one in front of them completes, so
+  // their start time is derived (see engine/resolve.ts).
+  jobs Json @default("[]")
+  // { itemId: qty } produced and awaiting collect.
+  done Json @default("{}")
+
+  @@unique([farmId, machine])
+  @@index([farmId])
+}
+
+model PenState {
+  id     String @id @default(cuid())
+  farmId String
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  pen    String // 'chicken' | 'cow' | 'sheep'
+
+  // [{ state: 'hungry' | 'full' | 'ready', fedAt: string | null }]
+  animals Json
+
+  @@unique([farmId, pen])
+  @@index([farmId])
+}
+
+model InventoryItem {
+  id     String @id @default(cuid())
+  farmId String
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  item   String
+  qty    Int    @default(0)
+
+  @@unique([farmId, item])
+  @@index([farmId])
+}
+
+model Order {
+  id     String @id @default(cuid())
+  farmId String
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  who   String
+  items Json // { itemId: qty }
+
+  // Rewards are stored for display, and RE-DERIVED from gamedata at delivery
+  // time (§6) — a tampered row can never pay out more than the config allows.
+  coins Int
+  xp    Int
+  hay   Decimal @db.Decimal(24, 4)
+
+  createdAt DateTime @default(now())
+
+  @@index([farmId, createdAt])
+}
+
+// Audit trail — every economic mutation writes exactly one row, in the same
+// transaction as the mutation itself.
+model Ledger {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 'plant' | 'harvest' | 'craft' | 'collect' | 'feed' | 'produce' | 'sell'
+  // | 'buy' | 'order' | 'order_skip' | 'expand' | 'levelup'
+  // | 'hay_withdraw' | 'hay_deposit'
+  kind       String
+  detail     Json
+  coinsDelta BigInt  @default(0)
+  hayDelta   Decimal @default(0) @db.Decimal(24, 4)
+  xpDelta    Int     @default(0)
+  // 'settled' for everything off-chain; 'pending' | 'settled' | 'failed'
+  // for on-chain $HAY movements.
+  status     String  @default("settled")
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([kind, createdAt])
+}
+
+// On-chain $HAY movements (§7). txHash is unique so a deposit can never be
+// credited twice, however many times the confirm endpoint is called.
+model HayTransfer {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  direction String // 'deposit' | 'withdraw'
+  amount    Decimal @db.Decimal(24, 4)
+  wallet    String
+  txHash    String? @unique
+  // 'pending' | 'review' | 'sent' | 'confirmed' | 'failed'
+  status    String  @default("pending")
+  ledgerId  String?
+  error     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+// Short-lived wallet login challenges.
+model AuthNonce {
+  id        String   @id @default(cuid())
+  address   String
+  nonce     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([address])
+  @@index([expiresAt])
+}
