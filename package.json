@@ -1,8 +1,8 @@
 {
-  "name": "sunmill",
+  "name": "sunmil",
   "private": true,
   "version": "1.0.0",
-  "description": "SUNMILL — server-authoritative production-chain farm game",
+  "description": "SUNMIL — server-authoritative production-chain farm game",
   "workspaces": [
     "server",
     "frontend"

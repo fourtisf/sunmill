@@ -23,12 +23,12 @@ async function main() {
   await app.listen({ port: env.API_PORT, host: env.API_HOST });
   app.log.info(
     { timeScale: TIME_SCALE, hayOnChain: env.HAY_ONCHAIN_ENABLED },
-    'sunmill-api ready',
+    'sunmil-api ready',
   );
 }
 
 main().catch((err) => {
   // eslint-disable-next-line no-console
-  console.error('failed to start sunmill-api', err);
+  console.error('failed to start sunmil-api', err);
   process.exit(1);
 });

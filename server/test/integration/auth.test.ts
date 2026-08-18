@@ -185,15 +185,15 @@ describe('wallet login', () => {
     const cleared = Array.isArray(out.headers['set-cookie'])
       ? (out.headers['set-cookie'] as string[])[0]
       : String(out.headers['set-cookie']);
-    expect(cleared).toContain('sunmill_session=;');
+    expect(cleared).toContain('sunmil_session=;');
   });
 
   maybe('a forged session cookie is not accepted', async () => {
     // A syntactically plausible JWT signed with the wrong key.
     const jwt = await import('jsonwebtoken');
-    const forged = jwt.default.sign({ userId: 'someone-elses-id' }, 'not-the-real-secret', { issuer: 'sunmill' });
+    const forged = jwt.default.sign({ userId: 'someone-elses-id' }, 'not-the-real-secret', { issuer: 'sunmil' });
     const res = await app.inject({
-      method: 'GET', url: '/api/farm', headers: { cookie: `sunmill_session=${forged}` },
+      method: 'GET', url: '/api/farm', headers: { cookie: `sunmil_session=${forged}` },
     });
     expect(res.statusCode).toBe(401);
   });

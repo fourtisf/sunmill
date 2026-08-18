@@ -3,11 +3,11 @@
 #
 #   server/scripts/dev-api.sh start|stop|restart
 #
-# Reads the repo-root .env, logs to /tmp/sunmill-api.log, and waits for
+# Reads the repo-root .env, logs to /tmp/sunmil-api.log, and waits for
 # /api/health before reporting success.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-PIDFILE=/tmp/sunmill-api.pid
+PIDFILE=/tmp/sunmil-api.pid
 
 stop() {
   if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
@@ -22,24 +22,24 @@ stop() {
 start() {
   set -a; . "$ROOT/.env"; set +a
   cd "$ROOT/server"
-  setsid node "$ROOT/node_modules/.bin/tsx" src/index.ts > /tmp/sunmill-api.log 2>&1 < /dev/null &
+  setsid node "$ROOT/node_modules/.bin/tsx" src/index.ts > /tmp/sunmil-api.log 2>&1 < /dev/null &
   echo $! > "$PIDFILE"
   for _ in $(seq 1 30); do
     sleep 1
     # A health check alone is not proof: an older instance may still hold the
     # port. Only report success when OUR process is the one that is alive.
     if ! kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
-      echo "sunmill-api exited during startup; see /tmp/sunmill-api.log" >&2
-      tail -20 /tmp/sunmill-api.log >&2
+      echo "sunmil-api exited during startup; see /tmp/sunmil-api.log" >&2
+      tail -20 /tmp/sunmil-api.log >&2
       return 1
     fi
     if curl -sf -o /dev/null "http://127.0.0.1:${API_PORT:-4000}/api/health"; then
-      echo "sunmill-api up on :${API_PORT:-4000} (pid $(cat "$PIDFILE"))"
+      echo "sunmil-api up on :${API_PORT:-4000} (pid $(cat "$PIDFILE"))"
       return 0
     fi
   done
-  echo "sunmill-api failed to start; see /tmp/sunmill-api.log" >&2
-  tail -20 /tmp/sunmill-api.log >&2
+  echo "sunmil-api failed to start; see /tmp/sunmil-api.log" >&2
+  tail -20 /tmp/sunmil-api.log >&2
   return 1
 }
 

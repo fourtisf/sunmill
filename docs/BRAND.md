@@ -1,4 +1,4 @@
-# SUNMILL — brand
+# SUNMIL — brand
 
 The name is the brief: **sun + mill**. The mark is a windmill standing in a
 sun — but the sails are not drawn *on* the sun, they are cut *out* of it.
@@ -20,15 +20,15 @@ All under `frontend/public/brand/`.
 
 | File | Use |
 |---|---|
-| `sunmill-logo.svg` | **Primary.** Horizontal lockup, dark wordmark. Light backgrounds. |
-| `sunmill-logo-light.svg` | Horizontal lockup, cream wordmark. Dark backgrounds. |
-| `sunmill-logo-stacked.svg` | Vertical lockup. Narrow spaces, splash screens. |
-| `sunmill-logo-stacked-light.svg` | Vertical lockup for dark backgrounds — including the game's own intro card, which sits on dark green. |
-| `sunmill-mark.svg` | The mark alone, full detail. **32px and up.** |
-| `sunmill-mark-simple.svg` | Bigger disc, heavier sails, no gradient, hub or rim. **Use below 32px** — none of that detail survives, and leaving it in turns the icon to mud. |
-| `sunmill-mono.svg` | One colour. Stamps, embossing, single-colour print. Set `color` to recolour. |
-| `sunmill-mono-light.svg` | The same, pre-set to cream. |
-| `sunmill-wordmark.svg` | Letters only. Set `color` to recolour. |
+| `sunmil-logo.svg` | **Primary.** Horizontal lockup, dark wordmark. Light backgrounds. |
+| `sunmil-logo-light.svg` | Horizontal lockup, cream wordmark. Dark backgrounds. |
+| `sunmil-logo-stacked.svg` | Vertical lockup. Narrow spaces, splash screens. |
+| `sunmil-logo-stacked-light.svg` | Vertical lockup for dark backgrounds — including the game's own intro card, which sits on dark green. |
+| `sunmil-mark.svg` | The mark alone, full detail. **32px and up.** |
+| `sunmil-mark-simple.svg` | Bigger disc, heavier sails, no gradient, hub or rim. **Use below 32px** — none of that detail survives, and leaving it in turns the icon to mud. |
+| `sunmil-mono.svg` | One colour. Stamps, embossing, single-colour print. Set `color` to recolour. |
+| `sunmil-mono-light.svg` | The same, pre-set to cream. |
+| `sunmil-wordmark.svg` | Letters only. Set `color` to recolour. |
 
 Raster exports (`icon-192`, `icon-512`, `icon-maskable-512`, plus
 `app/icon.png`, `app/apple-icon.png`, `app/opengraph-image.png`) are
@@ -66,8 +66,8 @@ palette and nothing has to be matched by eye.
 
 - **Clear space:** keep one quarter of the tile's width free on every side. In
   the lockups that spacing is already built in.
-- **Minimum size:** 16px for `sunmill-mark-simple.svg`, 32px for
-  `sunmill-mark.svg`, 96px wide for the horizontal lockup. Below that, use the
+- **Minimum size:** 16px for `sunmil-mark-simple.svg`, 32px for
+  `sunmil-mark.svg`, 96px wide for the horizontal lockup. Below that, use the
   mark alone.
 - **On a dark background** use the `-light` variants. The tile carries its own
   colour, so only the wordmark changes — never invert the mark itself, which
@@ -77,7 +77,7 @@ palette and nothing has to be matched by eye.
   rather than on gold, or the rounding shows as a frame. The build script
   already does this.
 - **Do not** re-colour the disc, rotate the mark, add a second shadow, stretch
-  either axis independently, or set "SUNMILL" in a font next to the mark. The
+  either axis independently, or set "SUNMIL" in a font next to the mark. The
   wordmark is drawn; a typeface substitute will not match it.
 - The wordmark and both mono files use `currentColor`, so inlining the SVG and
   setting CSS `color` is the supported way to recolour them.

@@ -19,11 +19,11 @@ redis.on('error', (err) => {
 });
 
 export const keys = {
-  market: (farmId: string) => `sunmill:market:${farmId}`,
-  orders: (farmId: string) => `sunmill:orders:${farmId}`,
-  rate: (userId: string, bucket: string) => `sunmill:rl:${bucket}:${userId}`,
-  nonce: (address: string) => `sunmill:nonce:${address}`,
-  hayDaily: (userId: string) => `sunmill:haycap:${userId}`,
+  market: (farmId: string) => `sunmil:market:${farmId}`,
+  orders: (farmId: string) => `sunmil:orders:${farmId}`,
+  rate: (userId: string, bucket: string) => `sunmil:rl:${bucket}:${userId}`,
+  nonce: (address: string) => `sunmil:nonce:${address}`,
+  hayDaily: (userId: string) => `sunmil:haycap:${userId}`,
 };
 
 /** Best-effort get — a Redis outage degrades to a cache miss, never a 500. */

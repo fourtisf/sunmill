@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Browser smoke test — drives the real UI in Chromium against a running
- * sunmill-web + sunmill-api.
+ * sunmil-web + sunmil-api.
  *
  *   npm i -D playwright            # once, if it is not already installed
  *   node frontend/scripts/browser-smoke.mjs [webUrl]

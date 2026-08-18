@@ -1,8 +1,8 @@
 {
-  "name": "sunmill-server",
+  "name": "sunmil-server",
   "private": true,
   "version": "1.0.0",
-  "description": "SUNMILL API \u2014 server-authoritative game engine",
+  "description": "SUNMIL API \u2014 server-authoritative game engine",
   "type": "commonjs",
   "main": "dist/index.js",
   "scripts": {

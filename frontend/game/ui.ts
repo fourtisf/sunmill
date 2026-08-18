@@ -1,6 +1,6 @@
 // @ts-nocheck
 /**
- * SUNMILL — HUD, dock, side rail, panels and input.
+ * SUNMIL — HUD, dock, side rail, panels and input.
  *
  * Ported from the prototype's ui.js and grown since. The markup and CSS
  * classes are unchanged where the prototype had them — that is the visual
@@ -22,6 +22,7 @@ import {
 import { duration, errorText, getLang, initLang, LANGS, noticeText, setLang, t } from './i18n';
 import { isEnabled as soundOn, setEnabled as setSound, sfx, unlockAudio } from './audio';
 import { refreshGuide, startGuide, stopGuide, taskGuideSteps } from './guide';
+import { SITE_DOMAIN } from './brand';
 import { setJoystickVisible } from './joystick';
 import { fx, sendFarmer, w2s, FIELD_POS } from './render';
 
@@ -788,6 +789,13 @@ export async function renderProfile() {
     });
     settings.appendChild(lang);
     body.appendChild(settings);
+
+    // The official address, in the one panel a player opens deliberately.
+    // A fake front-end can copy every pixel of this game; it cannot copy the
+    // address bar, so the player needs to know what to compare it against.
+    const site = el('div', 'official-note');
+    site.innerHTML = '<b>' + SITE_DOMAIN + '</b><span>' + t('brand.officialWarn') + '</span>';
+    body.appendChild(site);
   });
 }
 

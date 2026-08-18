@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -16 692 132" color="#5C3618" role="img" aria-label="SUNMILL">
-  <title>SUNMILL</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -16 594 132" color="#5C3618" role="img" aria-label="SUNMIL">
+  <title>SUNMIL</title>
   <!-- Drawn as stroked skeletons rather than set in a typeface, so the logo
        renders identically with no font to load, embed or licence.
-       Grid: cap height 100, stroke 27, round caps and joins.
+       Grid: cap height 100, stroke 27, round caps and joins, 48 between stems.
        Uses currentColor: set `color` on the element to recolour it. -->
   <g fill="none" stroke="currentColor" stroke-width="27" stroke-linecap="round" stroke-linejoin="round">
     <path d="M68 28 C58 12 20 14 20 34 C20 52 68 50 68 68 C68 88 30 90 20 74"/>
@@ -11,6 +11,5 @@
     <path d="M322 86 V14 L362 52 L402 14 V86"/>
     <path d="M450 14 V86"/>
     <path d="M498 14 V86 H548"/>
-    <path d="M596 14 V86 H646"/>
   </g>
 </svg>

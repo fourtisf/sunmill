@@ -1,15 +1,15 @@
-# SUNMILL — Production Handoff
+# SUNMIL — Production Handoff
 
 **Product:** Hay Day-style production-chain farm game, web (desktop + mobile browser).
 **Token:** `$HAY` on Robinhood Chain (see §7 for what's on-chain vs off-chain).
-**Prototype:** single-file `sunmill.html` — the visual + gameplay reference. Everything below describes turning that prototype into a persisted, multi-user, server-authoritative production build.
+**Prototype:** single-file `sunmil.html` — the visual + gameplay reference. Everything below describes turning that prototype into a persisted, multi-user, server-authoritative production build.
 **Stack (locked to our standard):** Next.js 14 (App Router) · Fastify · Prisma · PostgreSQL · Redis · PM2 on Hostinger VPS.
 
 ---
 
 ## 0. READ FIRST — what the prototype is and isn't
 
-The prototype (`sunmill.html`) is a **client-only, in-memory** proof of the game feel: procedural art engine, sweep-to-plant, timers, production chains, animals, orders, market, levels. **There is no backend, no persistence, no auth, no real economy.** Refresh = full reset. Timers run ~20x sped up so the whole loop is feelable in minutes.
+The prototype (`sunmil.html`) is a **client-only, in-memory** proof of the game feel: procedural art engine, sweep-to-plant, timers, production chains, animals, orders, market, levels. **There is no backend, no persistence, no auth, no real economy.** Refresh = full reset. Timers run ~20x sped up so the whole loop is feelable in minutes.
 
 **Your job:** keep the exact client art + feel, and move all *state and rules* to a server-authoritative backend. The client must never be trusted for coins, inventory, timers, or token balances.
 
@@ -294,7 +294,7 @@ Use Prisma `$transaction` for every mutation so inventory/coins/hay never desync
 
 ## 8. Frontend porting notes
 
-- Move the `<script>` bundle from `sunmill.html` into modules under `frontend/game/`: `art.ts`, `art2.ts` (procedural sprites — **do not modify**), `render.ts` (loop/camera), `ui.ts` (overlay), `net.ts` (new — API client).
+- Move the `<script>` bundle from `sunmil.html` into modules under `frontend/game/`: `art.ts`, `art2.ts` (procedural sprites — **do not modify**), `render.ts` (loop/camera), `ui.ts` (overlay), `net.ts` (new — API client).
 - Delete the in-memory `S` state object's role as source of truth. Replace with: client holds a **mirror** of the server snapshot; every action calls the API, then re-renders from the returned snapshot. Optimistic UI is OK for responsiveness, but the server response always wins (reconcile).
 - Timers: client keeps rendering progress from `startedAt`/`plantedAt` timestamps in the snapshot (server time). Send a server-time offset with each snapshot so client clock skew doesn't matter.
 - Keep the exact CSS/UI in the `<head>` — that's the visual identity.

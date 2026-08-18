@@ -51,7 +51,7 @@ function inviteCookie(res: { headers: Record<string, unknown> }): string | null 
   const raw = res.headers['set-cookie'];
   const all = Array.isArray(raw) ? raw : [raw];
   for (const line of all) {
-    if (typeof line === 'string' && line.startsWith('sunmill_invite=')) return line.split(';')[0];
+    if (typeof line === 'string' && line.startsWith('sunmil_invite=')) return line.split(';')[0];
   }
   return null;
 }
@@ -96,7 +96,7 @@ describe('closed-beta gate', () => {
     expect(res.statusCode).toBe(200);
     const raw = res.headers['set-cookie'];
     const line = (Array.isArray(raw) ? raw : [raw]).find(
-      (l) => typeof l === 'string' && l.startsWith('sunmill_invite='),
+      (l) => typeof l === 'string' && l.startsWith('sunmil_invite='),
     ) as string;
     expect(line).toBeTruthy();
     expect(line).toContain('HttpOnly');
@@ -121,7 +121,7 @@ describe('closed-beta gate', () => {
   maybe('will not take a forged invite cookie', async () => {
     const res = await app.inject({
       method: 'POST', url: '/api/auth/dev',
-      headers: { cookie: 'sunmill_invite=not-a-real-token' },
+      headers: { cookie: 'sunmil_invite=not-a-real-token' },
       payload: { handle: `gate-forged-${Date.now()}` },
     });
     expect(res.statusCode).toBe(403);
@@ -137,7 +137,7 @@ describe('closed-beta gate', () => {
 
   maybe('rate-limits guessing, so a short code cannot just be enumerated', async () => {
     // A fresh bucket for this test alone; the route keys on the caller's IP.
-    await redis.del('sunmill:rl:invite:ip:127.0.0.1').catch(() => undefined);
+    await redis.del('sunmil:rl:invite:ip:127.0.0.1').catch(() => undefined);
     let sawLimit = false;
     for (let i = 0; i < 24; i += 1) {
       const res = await app.inject({ method: 'POST', url: '/api/invite', payload: { code: `bad-${i}` } });
@@ -146,6 +146,6 @@ describe('closed-beta gate', () => {
     expect(sawLimit).toBe(true);
     // Local dev shares this Redis, so leaving the bucket spent would lock the
     // developer out of their own gate for ten minutes.
-    await redis.del('sunmill:rl:invite:ip:127.0.0.1').catch(() => undefined);
+    await redis.del('sunmil:rl:invite:ip:127.0.0.1').catch(() => undefined);
   });
 });

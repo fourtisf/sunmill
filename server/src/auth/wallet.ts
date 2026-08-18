@@ -23,7 +23,7 @@ export function makeNonce(): string {
 /** The exact text the wallet is asked to sign. */
 export function challengeMessage(address: string, nonce: string): string {
   return [
-    'SUNMILL — sign in',
+    'SUNMIL — sign in',
     '',
     `Wallet: ${normaliseAddress(address)}`,
     `Nonce: ${nonce}`,

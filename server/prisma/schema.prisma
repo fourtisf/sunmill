@@ -1,4 +1,4 @@
-// SUNMILL — data model (HANDOFF §5).
+// SUNMIL — data model (HANDOFF §5).
 // Money: coins are BigInt, hay is Decimal. Never floats for balances.
 
 generator client {

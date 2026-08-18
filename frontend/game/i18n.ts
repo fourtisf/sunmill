@@ -1,5 +1,5 @@
 /**
- * SUNMILL — interface language.
+ * SUNMIL — interface language.
  *
  * The server stays the authority on rules; this only decides what the player
  * reads. Server notices and refusals arrive as stable codes (`sold`,
@@ -158,7 +158,7 @@ const EN: Dict = {
   'board.empty.sm': 'Pick a name and you will be first.',
 
   /* tutorial */
-  'tutorial.welcome.title': 'Welcome to Sunmill',
+  'tutorial.welcome.title': 'Welcome to Sunmil',
   'tutorial.welcome.body': 'Let me walk you through your first harvest. It takes about a minute.',
   'tutorial.start': 'Show me',
   'tutorial.later': 'I know what I am doing',
@@ -207,13 +207,15 @@ const EN: Dict = {
   'login.guestFailed': 'Guest login is disabled.',
   'login.offline': 'Cannot reach the farm server.',
   'invite.title': 'Closed beta',
-  'invite.blurb': 'SUNMILL is invite-only for now. Enter your code to get in.',
+  'invite.blurb': 'SUNMIL is invite-only for now. Enter your code to get in.',
   'invite.label': 'Invite code',
   'invite.submit': 'Enter',
   'invite.checking': 'Checking…',
   'invite.wrong': 'That code is not right.',
   'invite.tooMany': 'Too many tries. Wait a few minutes.',
   'invite.failed': 'Could not check that code.',
+  'brand.official': 'Official address:',
+  'brand.officialWarn': 'Only ever connect your wallet on this address.',
 
   /* notices from the server, by code */
   'notice.planted_partial': 'Only had coins for {n}',
@@ -417,7 +419,7 @@ const ID: Dict = {
   'board.empty.big': 'Belum ada yang memberi nama',
   'board.empty.sm': 'Pilih nama dan kamu jadi yang pertama.',
 
-  'tutorial.welcome.title': 'Selamat datang di Sunmill',
+  'tutorial.welcome.title': 'Selamat datang di Sunmil',
   'tutorial.welcome.body': 'Aku pandu panen pertamamu. Sekitar satu menit saja.',
   'tutorial.start': 'Pandu aku',
   'tutorial.later': 'Aku sudah paham',
@@ -464,13 +466,15 @@ const ID: Dict = {
   'login.guestFailed': 'Login tamu dimatikan.',
   'login.offline': 'Tidak bisa menghubungi server.',
   'invite.title': 'Beta tertutup',
-  'invite.blurb': 'SUNMILL masih khusus undangan. Masukkan kodemu untuk masuk.',
+  'invite.blurb': 'SUNMIL masih khusus undangan. Masukkan kodemu untuk masuk.',
   'invite.label': 'Kode undangan',
   'invite.submit': 'Masuk',
   'invite.checking': 'Mengecek…',
   'invite.wrong': 'Kodenya salah.',
   'invite.tooMany': 'Terlalu banyak percobaan. Tunggu beberapa menit.',
   'invite.failed': 'Gagal mengecek kode itu.',
+  'brand.official': 'Alamat resmi:',
+  'brand.officialWarn': 'Hanya hubungkan dompetmu di alamat ini.',
 
   'notice.planted_partial': 'Koin hanya cukup untuk {n}',
   'notice.silo_nearly_full': 'Silo hampir penuh — jual atau tingkatkan',
@@ -537,7 +541,7 @@ const ID: Dict = {
 };
 
 const DICTS: Record<Lang, Dict> = { en: EN, id: ID };
-const STORAGE_KEY = 'sunmill.lang';
+const STORAGE_KEY = 'sunmil.lang';
 
 export const LANGS: Array<{ code: Lang; label: string }> = [
   { code: 'en', label: 'English' },

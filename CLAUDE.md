@@ -1,6 +1,6 @@
-# CLAUDE.md — SUNMILL build instructions for Claude Code
+# CLAUDE.md — SUNMIL build instructions for Claude Code
 
-You are building the production backend + frontend port for **SUNMILL**, a Hay Day-style farm game. Read `HANDOFF.md` in full before writing any code — it is the authoritative spec. This file tells you *how* to work in this repo.
+You are building the production backend + frontend port for **SUNMIL**, a Hay Day-style farm game. Read `HANDOFF.md` in full before writing any code — it is the authoritative spec. This file tells you *how* to work in this repo.
 
 ## Golden rules
 
@@ -16,7 +16,7 @@ You are building the production backend + frontend port for **SUNMILL**, a Hay D
 - **Frontend:** Next.js 14 (App Router), TypeScript, no heavy UI framework — keep the prototype's plain canvas + CSS overlay. Fetch state via a small `net.ts` client.
 - **Backend:** Fastify (TypeScript), zod for validation, Prisma ORM.
 - **DB:** PostgreSQL via Prisma. **Redis** (ioredis) for session cache, market/order-board cache, and rate-limit buckets.
-- **Process:** PM2 with an `ecosystem.config.js`. Two apps: `sunmill-web` (Next) and `sunmill-api` (Fastify).
+- **Process:** PM2 with an `ecosystem.config.js`. Two apps: `sunmil-web` (Next) and `sunmil-api` (Fastify).
 - **Env:** all secrets (DB URL, JWT secret, Redis URL, Robinhood Chain RPC + treasury key) in `.env`, never committed, never sent to client. Provide `.env.example`.
 - **Money types:** coins = `BigInt`, hay = `Decimal`. Never floats for balances.
 - **Auth:** wallet nonce → sign → JWT in httpOnly, secure, sameSite cookie.

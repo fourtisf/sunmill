@@ -1,4 +1,4 @@
-/* SUNMILL — UI chrome, ported verbatim from the prototype's <style> block.
+/* SUNMIL — UI chrome, ported verbatim from the prototype's <style> block.
    This is the visual identity; keep it in step with the canvas art. */
 
 :root{
@@ -461,6 +461,17 @@ body{
 .speed-btn svg{width:15px; height:15px}
 
 /* ---------- brand lockup on the intro / login card ---------- */
+.official-note{
+  margin-top:12px; padding:10px 12px; border-radius:12px; text-align:center;
+  background:rgba(132,81,42,.09); border:2px dashed rgba(132,81,42,.28);
+}
+.official-note b{ display:block; font-size:15px; color:#5c3618; letter-spacing:.5px }
+.official-note span{ display:block; margin-top:3px; font-size:11.5px; color:#8a6a42; line-height:1.35 }
+.icard .official{
+  margin-top:14px; padding-top:12px; border-top:2px solid rgba(132,81,42,.18);
+  font-size:11.5px; color:var(--ink-3); letter-spacing:.2px;
+}
+.icard .official b{ color:var(--ink-2); font-weight:600; letter-spacing:.4px }
 .icard .brandmark{
   display:block; width:min(210px, 52vw); height:auto; margin:0 auto 2px;
   /* The card itself is cream parchment, not the dark green behind it, so this

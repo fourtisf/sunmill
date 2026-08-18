@@ -1,5 +1,5 @@
 /**
- * SUNMILL — lazy, server-authoritative timer resolution (HANDOFF §4).
+ * SUNMIL — lazy, server-authoritative timer resolution (HANDOFF §4).
  *
  * There are no cron jobs and no per-farm intervals. Every request that touches
  * a farm calls resolve() with the SERVER clock; the resolved state is a pure

@@ -1,6 +1,6 @@
 {
-  "name": "SUNMILL — Farm & Craft Tycoon",
-  "short_name": "SUNMILL",
+  "name": "SUNMIL — Farm & Craft Tycoon",
+  "short_name": "SUNMIL",
   "description": "A production-chain farm on Robinhood Chain.",
   "start_url": "/",
   "display": "standalone",
@@ -25,7 +25,7 @@
       "purpose": "maskable"
     },
     {
-      "src": "/brand/sunmill-mark.svg",
+      "src": "/brand/sunmil-mark.svg",
       "sizes": "any",
       "type": "image/svg+xml"
     }

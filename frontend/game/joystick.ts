@@ -1,5 +1,5 @@
 /**
- * SUNMILL — virtual joystick.
+ * SUNMIL — virtual joystick.
  *
  * A thumb stick in the bottom-left that walks the farmer around the island,
  * with the camera following. It is DOM and CSS only — the canvas art engine is

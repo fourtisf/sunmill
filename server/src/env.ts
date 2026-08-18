@@ -24,7 +24,7 @@ const schema = z.object({
 
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_TTL_SECONDS: z.coerce.number().int().positive().default(60 * 60 * 24 * 7),
-  COOKIE_NAME: z.string().default('sunmill_session'),
+  COOKIE_NAME: z.string().default('sunmil_session'),
   COOKIE_DOMAIN: z.string().optional(),
   COOKIE_SECURE: bool.default('false'),
 
@@ -45,7 +45,7 @@ const schema = z.object({
   // Closed-beta gate. Unset means no gate — anyone can create an account.
   // When set, no session can be opened without posting this code first.
   INVITE_CODE: z.string().min(1).optional().or(z.literal('').transform(() => undefined)),
-  INVITE_COOKIE_NAME: z.string().default('sunmill_invite'),
+  INVITE_COOKIE_NAME: z.string().default('sunmil_invite'),
   INVITE_TTL_SECONDS: z.coerce.number().int().positive().default(60 * 60 * 24 * 30),
 
   // Second factor for the operator routes: a user flagged isAdmin must ALSO
@@ -83,11 +83,11 @@ export function onChainReady(): boolean {
 
 if (env.isProd && !env.INVITE_CODE) {
   // eslint-disable-next-line no-console
-  console.warn('[sunmill] INVITE_CODE unset — the beta gate is open and anyone can create an account.');
+  console.warn('[sunmil] INVITE_CODE unset — the beta gate is open and anyone can create an account.');
 }
 
 if (env.isProd && !env.COOKIE_SECURE) {
   // Loud, but not fatal — someone may be terminating TLS elsewhere.
   // eslint-disable-next-line no-console
-  console.warn('[sunmill] COOKIE_SECURE=false in production — the session cookie will be sent over plain HTTP.');
+  console.warn('[sunmil] COOKIE_SECURE=false in production — the session cookie will be sent over plain HTTP.');
 }

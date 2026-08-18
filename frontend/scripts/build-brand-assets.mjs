@@ -43,15 +43,15 @@ background:radial-gradient(ellipse at 50% 32%, rgba(246,201,79,.22), transparent
 svg{width:520px;height:auto;display:block}
 .tag{font-size:26px;font-weight:800;letter-spacing:7px;text-transform:uppercase;color:#F6C94F;opacity:.85}
 </style>
-<div class="card">${svg('sunmill-logo-stacked-light.svg')}<div class="tag">Farm &amp; Craft Tycoon</div></div>`;
+<div class="card">${svg('sunmil-logo-stacked-light.svg')}<div class="tag">Farm &amp; Craft Tycoon</div></div>`;
 }
 
 const JOBS = [
-  { file: resolve(app, 'icon.png'), page: iconPage('sunmill-mark-simple.svg', 64), w: 64, h: 64 },
-  { file: resolve(app, 'apple-icon.png'), page: iconPage('sunmill-mark.svg', 180, '#2C1705'), w: 180, h: 180 },
-  { file: resolve(brand, 'icon-192.png'), page: iconPage('sunmill-mark.svg', 192), w: 192, h: 192 },
-  { file: resolve(brand, 'icon-512.png'), page: iconPage('sunmill-mark.svg', 512), w: 512, h: 512 },
-  { file: resolve(brand, 'icon-maskable-512.png'), page: iconPage('sunmill-mark.svg', 512, '#2C1705', 56), w: 512, h: 512 },
+  { file: resolve(app, 'icon.png'), page: iconPage('sunmil-mark-simple.svg', 64), w: 64, h: 64 },
+  { file: resolve(app, 'apple-icon.png'), page: iconPage('sunmil-mark.svg', 180, '#2C1705'), w: 180, h: 180 },
+  { file: resolve(brand, 'icon-192.png'), page: iconPage('sunmil-mark.svg', 192), w: 192, h: 192 },
+  { file: resolve(brand, 'icon-512.png'), page: iconPage('sunmil-mark.svg', 512), w: 512, h: 512 },
+  { file: resolve(brand, 'icon-maskable-512.png'), page: iconPage('sunmil-mark.svg', 512, '#2C1705', 56), w: 512, h: 512 },
   { file: resolve(app, 'opengraph-image.png'), page: socialPage(), w: 1200, h: 630 },
 ];
 
@@ -73,8 +73,8 @@ for (const job of JOBS) {
 await browser.close();
 
 writeFileSync(resolve(root, 'public/manifest.webmanifest'), JSON.stringify({
-  name: 'SUNMILL — Farm & Craft Tycoon',
-  short_name: 'SUNMILL',
+  name: 'SUNMIL — Farm & Craft Tycoon',
+  short_name: 'SUNMIL',
   description: 'A production-chain farm on Robinhood Chain.',
   start_url: '/',
   display: 'standalone',
@@ -85,7 +85,7 @@ writeFileSync(resolve(root, 'public/manifest.webmanifest'), JSON.stringify({
     { src: '/brand/icon-192.png', sizes: '192x192', type: 'image/png' },
     { src: '/brand/icon-512.png', sizes: '512x512', type: 'image/png' },
     { src: '/brand/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-    { src: '/brand/sunmill-mark.svg', sizes: 'any', type: 'image/svg+xml' },
+    { src: '/brand/sunmil-mark.svg', sizes: 'any', type: 'image/svg+xml' },
   ],
 }, null, 2) + '\n');
 console.log('wrote public/manifest.webmanifest');

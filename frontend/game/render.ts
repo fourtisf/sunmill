@@ -1,6 +1,6 @@
 // @ts-nocheck
 /**
- * SUNMILL — camera, world layout and the canvas render loop.
+ * SUNMIL — camera, world layout and the canvas render loop.
  *
  * Ported from the prototype's game.js render half. The drawing is unchanged;
  * what changed is where the state comes from. The prototype read its in-memory

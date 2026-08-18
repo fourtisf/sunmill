@@ -2,7 +2,7 @@
  * PM2 process definitions for the Hostinger VPS.
  *
  *   pm2 start ecosystem.config.js
- *   pm2 logs sunmill-api
+ *   pm2 logs sunmil-api
  *   pm2 reload ecosystem.config.js --env production
  *
  * Secrets come from the repo-root .env (never committed); both apps read it.
@@ -33,7 +33,7 @@ module.exports = {
   apps: [
     {
       ...shared,
-      name: 'sunmill-api',
+      name: 'sunmil-api',
       cwd: path.join(root, 'server'),
       script: 'dist/index.js',
       out_file: path.join(root, 'logs/api.out.log'),
@@ -43,7 +43,7 @@ module.exports = {
     },
     {
       ...shared,
-      name: 'sunmill-web',
+      name: 'sunmil-web',
       cwd: path.join(root, 'frontend'),
       script: 'node_modules/next/dist/bin/next',
       args: 'start -p ' + (process.env.WEB_PORT || 3000),

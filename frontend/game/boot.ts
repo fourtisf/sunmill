@@ -1,6 +1,6 @@
 // @ts-nocheck
 /**
- * SUNMILL — startup and the frame loop.
+ * SUNMIL — startup and the frame loop.
  *
  * The loop renders; it never decides anything. Readiness comes from the server
  * snapshot, and the client re-syncs when a known timer elapses, when the tab
@@ -14,6 +14,7 @@ import {
   tickPanels, toast,
 } from './ui';
 import { initLang, t } from './i18n';
+import { SITE_DOMAIN } from './brand';
 import { initAudio, unlockAudio } from './audio';
 import { mountJoystick, setJoystickVisible, unmountJoystick } from './joystick';
 import { startGuide, stopGuide, tutorialSteps } from './guide';
@@ -107,6 +108,10 @@ async function showLogin() {
   renderLogin();
 }
 
+/** The real address, so a player has something to check a fake against. */
+const officialLine = () =>
+  '<div class="official">' + t('brand.official') + ' <b>' + SITE_DOMAIN + '</b></div>';
+
 function showCard(mode: string): HTMLElement | null {
   const intro = document.getElementById('intro');
   const card = intro.querySelector('.icard') as HTMLElement | null;
@@ -121,7 +126,7 @@ function showInvite() {
   const card = showCard('invite');
   if (!card) return;
   card.innerHTML =
-    '<img class="brandmark" src="/brand/sunmill-logo-stacked.svg" alt="SUNMILL" width="760" height="600">'
+    '<img class="brandmark" src="/brand/sunmil-logo-stacked.svg" alt="SUNMIL" width="760" height="600">'
     + '<div class="tl">' + t('invite.title') + '</div>'
     + '<p>' + t('invite.blurb') + '</p>'
     + '<div class="field" style="text-align:left">'
@@ -130,7 +135,8 @@ function showInvite() {
     + ' maxlength="64" spellcheck="false">'
     + '</div>'
     + '<div id="inviteErr" class="form-err" style="display:none"></div>'
-    + '<button class="btn gold go" id="btnInvite">' + t('invite.submit') + '</button>';
+    + '<button class="btn gold go" id="btnInvite">' + t('invite.submit') + '</button>'
+    + officialLine();
 
   const input = document.getElementById('inviteCode') as HTMLInputElement;
   const btn = document.getElementById('btnInvite') as HTMLButtonElement;
@@ -172,14 +178,15 @@ function renderLogin() {
   const card = showCard('login');
   if (!card) return;
   card.innerHTML =
-    '<img class="brandmark" src="/brand/sunmill-logo-stacked.svg" alt="SUNMILL" width="760" height="600">'
+    '<img class="brandmark" src="/brand/sunmil-logo-stacked.svg" alt="SUNMIL" width="760" height="600">'
     + '<div class="tl">' + t('intro.tagline') + '</div>'
     + '<p>' + t('login.blurb') + '</p>'
     + '<div id="loginErr" class="hint" style="display:none"><span class="d"></span><span id="loginErrTxt"></span></div>'
     + '<button class="btn gold go" id="btnWallet">' + t('login.wallet') + '</button>'
     + (cfg().features.devLogin
       ? '<button class="btn wood go" id="btnGuest" style="margin-top:10px">' + t('login.guest') + '</button>'
-      : '');
+      : '')
+    + officialLine();
 
   const fail = (msg) => {
     const box = document.getElementById('loginErr');

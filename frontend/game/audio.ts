@@ -1,5 +1,5 @@
 /**
- * SUNMILL — sound.
+ * SUNMIL — sound.
  *
  * Synthesised with WebAudio rather than shipped as files, for the same reason
  * the art is procedural: no assets to load, nothing to cache-bust, and the
@@ -9,7 +9,7 @@
  * Browsers refuse to start audio before a gesture, so the context is created
  * lazily on the first interaction and every call is a no-op until then.
  */
-const STORAGE_KEY = 'sunmill.sound';
+const STORAGE_KEY = 'sunmil.sound';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;

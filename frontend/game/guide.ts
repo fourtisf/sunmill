@@ -1,5 +1,5 @@
 /**
- * SUNMILL — the guide.
+ * SUNMIL — the guide.
  *
  * One engine drives both the onboarding tutorial and the "show me" button on a
  * daily task. A guide is a list of steps; each step points at something on

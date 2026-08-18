@@ -1,4 +1,4 @@
-# SUNMILL — deployment runbook
+# SUNMIL — deployment runbook
 
 Target: a Hostinger VPS running both apps under PM2 behind nginx.
 
@@ -16,8 +16,8 @@ sudo npm i -g pm2
 Create the database and a role that owns it:
 
 ```bash
-sudo -u postgres psql -c "CREATE ROLE sunmill LOGIN PASSWORD '…';"
-sudo -u postgres psql -c "CREATE DATABASE sunmill OWNER sunmill;"
+sudo -u postgres psql -c "CREATE ROLE sunmil LOGIN PASSWORD '…';"
+sudo -u postgres psql -c "CREATE DATABASE sunmil OWNER sunmil;"
 ```
 
 Redis needs no special configuration, but it must not be reachable from the
@@ -30,7 +30,7 @@ boards and rate-limit counters, not player state.
 ## 2. Configure
 
 ```bash
-git clone <repo> /var/www/sunmill && cd /var/www/sunmill
+git clone <repo> /var/www/sunmil && cd /var/www/sunmil
 cp .env.example .env
 ```
 
@@ -75,11 +75,11 @@ pm2 save
 pm2 startup           # then run the command it prints
 ```
 
-Two processes come up: `sunmill-api` (Fastify, `API_PORT`) and `sunmill-web`
+Two processes come up: `sunmil-api` (Fastify, `API_PORT`) and `sunmil-web`
 (Next, `WEB_PORT`). Both read the repo-root `.env`.
 
 ```bash
-pm2 logs sunmill-api
+pm2 logs sunmil-api
 pm2 reload ecosystem.config.js --env production   # zero-downtime restart
 ```
 
@@ -93,7 +93,7 @@ on the same registrable domain so the session cookie is first-party.
 ```nginx
 server {
   listen 443 ssl http2;
-  server_name sunmill.example.com;
+  server_name sunmil.example.com;
 
   # …certbot ssl_certificate lines…
 
@@ -124,14 +124,14 @@ The API sets `trustProxy`, so it reads the real client IP from
 ## 6. Verify a deploy
 
 ```bash
-curl -s https://sunmill.example.com/api/health
-curl -s https://sunmill.example.com/api/config | head -c 200
+curl -s https://sunmil.example.com/api/health
+curl -s https://sunmil.example.com/api/config | head -c 200
 ```
 
 Then, from a machine that can reach a non-production instance:
 
 ```bash
-node server/scripts/smoke.mjs https://staging.sunmill.example.com
+node server/scripts/smoke.mjs https://staging.sunmil.example.com
 ```
 
 The smoke test needs the dev login, so it only runs against staging. Against
@@ -166,7 +166,7 @@ So the ceiling is database round trips. In order, when it starts to hurt:
 
 1. Raise `connection_limit` and give Postgres more `shared_buffers`.
 2. Move Postgres to its own box.
-3. Run more `sunmill-api` instances (`instances: 'max'`, `exec_mode: 'cluster'`
+3. Run more `sunmil-api` instances (`instances: 'max'`, `exec_mode: 'cluster'`
    in `ecosystem.config.js`) — the API is stateless; sessions are JWTs and
    Redis is shared.
 
@@ -181,7 +181,7 @@ Player state is entirely in Postgres. Redis holds only caches and rate-limit
 counters and can be flushed at any time.
 
 ```bash
-pg_dump -Fc sunmill > /var/backups/sunmill-$(date +%F).dump
+pg_dump -Fc sunmil > /var/backups/sunmil-$(date +%F).dump
 ```
 
 Keep the `Ledger` table forever — it is the audit trail, and it is what lets
@@ -219,7 +219,7 @@ overlay in devtools or calling the API directly gets nobody in.
 
 ```bash
 # turn the gate on
-INVITE_CODE=some-long-code-here    # then restart sunmill-api
+INVITE_CODE=some-long-code-here    # then restart sunmil-api
 
 # rotate it — everyone already through keeps their cookie until it expires
 INVITE_CODE=a-different-one
@@ -266,16 +266,16 @@ right state for a deployment with nobody on call.
 psql "$DATABASE_URL" -c "UPDATE \"User\" SET \"isAdmin\" = true WHERE wallet = '0x…';"
 
 # what is waiting
-curl -s https://sunmill.example.com/api/admin/withdrawals \
+curl -s https://sunmil.example.com/api/admin/withdrawals \
   -H "X-Admin-Token: $ADMIN_TOKEN" -b cookies.txt
 
 # send it
-curl -s -X POST https://sunmill.example.com/api/admin/withdrawals/release \
+curl -s -X POST https://sunmil.example.com/api/admin/withdrawals/release \
   -H "X-Admin-Token: $ADMIN_TOKEN" -H 'content-type: application/json' -b cookies.txt \
   -d '{"transferId":"…"}'
 
 # refuse it — the player's $HAY goes back, with a Ledger row recording why
-curl -s -X POST https://sunmill.example.com/api/admin/withdrawals/reject \
+curl -s -X POST https://sunmil.example.com/api/admin/withdrawals/reject \
   -H "X-Admin-Token: $ADMIN_TOKEN" -H 'content-type: application/json' -b cookies.txt \
   -d '{"transferId":"…","reason":"failed review"}'
 ```

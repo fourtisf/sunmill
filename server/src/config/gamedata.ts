@@ -1,5 +1,5 @@
 /**
- * SUNMILL — game balance. THE single source of truth for every number the
+ * SUNMIL — game balance. THE single source of truth for every number the
  * economy depends on (HANDOFF §2). Nothing here may be duplicated in the
  * client, and no route may hardcode a price, duration, yield or recipe.
  *

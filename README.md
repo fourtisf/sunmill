@@ -1,10 +1,10 @@
-# SUNMILL
+# SUNMIL
 
 A Hay Day-style production-chain farm game. The client is a procedural canvas
 renderer; **everything economic lives on the server**.
 
 `HANDOFF.md` is the product spec. `CLAUDE.md` is the working agreement for this
-repo. `prototype/sunmill.html` is the original single-file prototype, kept as
+repo. `prototype/sunmil.html` is the original single-file prototype, kept as
 the visual reference.
 
 ```
@@ -55,7 +55,7 @@ You need Node 20+, PostgreSQL and Redis.
 cp .env.example .env          # then set JWT_SECRET to a long random string
 npm install
 
-createdb sunmill              # or point DATABASE_URL at any Postgres
+createdb sunmil              # or point DATABASE_URL at any Postgres
 npm run prisma:migrate --workspace=server
 npm run seed --workspace=server
 

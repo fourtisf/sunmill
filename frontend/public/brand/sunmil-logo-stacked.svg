@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 600" color="#5C3618" role="img" aria-label="SUNMILL">
-  <title>SUNMILL</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 600" color="#5C3618" role="img" aria-label="SUNMIL">
+  <title>SUNMIL</title>
   <!-- Lockup: the mark carries the colour, so only the wordmark follows
        `color`. The wordmark is drawn as stroked skeletons rather than set in a
        typeface, so the logo renders identically with no font to load or
@@ -7,9 +7,7 @@
        Use the -light cut on dark grounds. -->
   <defs>
     <radialGradient id="logostacked-sun" cx="38%" cy="30%" r="78%">
-      <stop offset="0" stop-color="#FFE9A8"/>
-      <stop offset="52%" stop-color="#F6C94F"/>
-      <stop offset="100%" stop-color="#DDA426"/>
+      <stop offset="0" stop-color="#FFE9A8"/><stop offset="52%" stop-color="#F6C94F"/><stop offset="100%" stop-color="#DDA426"/>
     </radialGradient>
     <clipPath id="logostacked-disc"><circle cx="256" cy="258" r="152"/></clipPath>
   </defs>
@@ -26,7 +24,7 @@
     <rect x="26" y="26" width="460" height="460" rx="100" fill="none"
           stroke="#F6C94F" stroke-width="4" opacity=".15"/>
   </g>
-  <g transform="translate(70,431) scale(0.93)">
+  <g transform="translate(116,431) scale(0.93)">
     <g fill="none" stroke="currentColor" stroke-width="27" stroke-linecap="round" stroke-linejoin="round">
       <path d="M68 28 C58 12 20 14 20 34 C20 52 68 50 68 68 C68 88 30 90 20 74"/>
       <path d="M118 14 V58 a27 27 0 0 0 54 0 V14"/>
@@ -34,7 +32,6 @@
       <path d="M322 86 V14 L362 52 L402 14 V86"/>
       <path d="M450 14 V86"/>
       <path d="M498 14 V86 H548"/>
-      <path d="M596 14 V86 H646"/>
     </g>
   </g>
 </svg>

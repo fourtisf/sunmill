@@ -17,7 +17,7 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 import { env } from '../env';
 import { errors } from '../lib/errors';
 
-const AUDIENCE = 'sunmill-invite';
+const AUDIENCE = 'sunmil-invite';
 
 export function inviteRequired(): boolean {
   return Boolean(env.INVITE_CODE);
@@ -40,14 +40,14 @@ export function codeMatches(candidate: string): boolean {
 export function signInvite(): string {
   return jwt.sign({ inv: true }, env.JWT_SECRET, {
     expiresIn: env.INVITE_TTL_SECONDS,
-    issuer: 'sunmill',
+    issuer: 'sunmil',
     audience: AUDIENCE,
   });
 }
 
 function validInviteToken(token: string): boolean {
   try {
-    jwt.verify(token, env.JWT_SECRET, { issuer: 'sunmill', audience: AUDIENCE });
+    jwt.verify(token, env.JWT_SECRET, { issuer: 'sunmil', audience: AUDIENCE });
     return true;
   } catch {
     return false;
