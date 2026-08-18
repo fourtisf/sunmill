@@ -43,7 +43,7 @@ Fill in `.env`. The ones that matter in production:
 | `COOKIE_SECURE` | `true`. The session cookie must never cross plain HTTP. |
 | `COOKIE_DOMAIN` | The apex domain, so `www` and the API host share the cookie. |
 | `CORS_ORIGINS` | Exactly the web origins, comma separated. Not `*`. |
-| `DATABASE_URL` | Append `?connection_limit=20&pool_timeout=20` to size the Prisma pool for the box. |
+| `DATABASE_URL` | Append `?connection_limit=20&pool_timeout=20` to size the Prisma pool for the box. **Quote the whole value** — scripts source this file, and the first unquoted `&` ends the assignment. |
 | `TIME_SCALE` | See README. **Confirm with ALFA before locking.** |
 | `NEXT_PUBLIC_API_URL` | The public origin, e.g. `https://sunmil.fun` — **not** the internal port. Read from this file by `next.config.mjs` and baked into the client bundle at build time, so changing it needs a rebuild, not a restart. Leave it wrong and every browser calls its own machine. |
 | `INVITE_CODE` | The closed-beta gate. Empty means no gate. See §10. |

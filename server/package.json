@@ -12,9 +12,9 @@
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma migrate deploy",
+    "prisma:generate": "node scripts/prisma.mjs generate",
+    "prisma:migrate": "node scripts/prisma.mjs migrate dev",
+    "prisma:deploy": "node scripts/prisma.mjs migrate deploy",
     "seed": "tsx prisma/seed.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:all": "npm run test && npm run test:integration"

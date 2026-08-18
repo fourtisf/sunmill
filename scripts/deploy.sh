@@ -14,7 +14,13 @@ cd "$ROOT"
   echo "no .env at $ROOT — copy .env.example and fill it in before deploying" >&2
   exit 1
 }
-set -a; . ./.env; set +a
+
+# Read the two ports out of .env rather than sourcing it. Sourcing executes the
+# file, and a value carrying an unquoted & would run as a background command
+# instead of being assigned. Everything else reads .env through dotenv.
+envval() { sed -n "s/^$1=//p" .env | tail -1 | tr -d "\"'" ; }
+API_PORT="$(envval API_PORT)"; API_PORT="${API_PORT:-4000}"
+WEB_PORT="$(envval WEB_PORT)"; WEB_PORT="${WEB_PORT:-3000}"
 
 BRANCH="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 
@@ -43,7 +49,7 @@ pm2 save
 
 echo "==> checking"
 sleep 4
-curl -fsS "http://127.0.0.1:${API_PORT:-4000}/api/health" >/dev/null && echo "    api ok"
-curl -fsSI "http://127.0.0.1:${WEB_PORT:-3000}/" >/dev/null && echo "    web ok"
+curl -fsS "http://127.0.0.1:${API_PORT}/api/health" >/dev/null && echo "    api ok"
+curl -fsSI "http://127.0.0.1:${WEB_PORT}/" >/dev/null && echo "    web ok"
 
 echo "==> deployed $(git rev-parse --short HEAD) on $BRANCH"
