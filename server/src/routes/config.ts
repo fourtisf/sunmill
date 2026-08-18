@@ -40,6 +40,9 @@ export default async function configRoutes(app: FastifyInstance) {
     market: { refreshSeconds: scaled(MARKET.refreshSec) },
     features: {
       hayOnChain: env.HAY_ONCHAIN_ENABLED && onChainReady(),
+      // The signature-free dev login only exists outside production; the
+      // client asks the server rather than guessing from its own build mode.
+      devLogin: !env.isProd,
     },
   }));
 
