@@ -7,9 +7,14 @@
  *
  * Secrets come from the repo-root .env (never committed); both apps read it.
  */
+const fs = require('fs');
 const path = require('path');
 
 const root = __dirname;
+
+// PM2 will not create the log directory itself, and a missing one stops both
+// apps from starting on a fresh box.
+fs.mkdirSync(path.join(root, 'logs'), { recursive: true });
 const envFile = path.join(root, '.env');
 require('dotenv').config({ path: envFile });
 
