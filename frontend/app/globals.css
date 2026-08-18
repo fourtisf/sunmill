@@ -432,7 +432,9 @@ body{
 .form-err{color:#C4402E; font-size:13px; font-weight:600; margin:-6px 0 10px}
 
 /* ---------- away summary ---------- */
-#away{position:fixed; inset:0; z-index:65; display:none; place-items:center; background:rgba(24,16,6,.5)}
+/* Above the guide (70): a returning player reads this first, and the guide
+   waits for it rather than dimming it. */
+#away{position:fixed; inset:0; z-index:80; display:none; place-items:center; background:rgba(24,16,6,.5)}
 #away.on{display:grid}
 #away .aw{width:min(400px, calc(100vw - 32px)); padding:22px; text-align:center}
 #away .aw h3{font-family:Fredoka,sans-serif; font-size:22px; color:#5C3618; margin:0 0 4px}

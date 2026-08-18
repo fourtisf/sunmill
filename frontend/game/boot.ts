@@ -10,7 +10,8 @@ import { api, NetError } from './net';
 import { apply, cfg, S, setConfig, snap } from './state';
 import { getHIT, cam, clampCam, initWorld, onResize, render, step } from './render';
 import {
-  bootUI, buildDock, buildRail, showAwayCard, syncBadges, syncHUD, tickPanels, toast,
+  awayCardOpen, bootUI, buildDock, buildRail, showAwayCard, syncBadges, syncHUD,
+  tickPanels, toast,
 } from './ui';
 import { initLang, t } from './i18n';
 import { initAudio, unlockAudio } from './audio';
@@ -53,7 +54,7 @@ async function sync() {
     apply(await api.farm());
     syncHUD(); syncBadges();
     if (snap().farm.level !== before) { buildDock(); buildRail() }
-    if (S.away) showAwayCard();
+    if (S.away) showAwayCard(maybeStartTutorial);
     scheduleSync();
   } catch (err) {
     if (err instanceof NetError && err.status === 401) return showLogin();
@@ -159,7 +160,10 @@ async function afterLogin() {
 function maybeStartTutorial() {
   const tutorial = S.snap?.tutorial;
   if (!tutorial || tutorial.done) return;
+  // The away card gets read first; the guide would only dim it.
+  if (awayCardOpen()) return;
   window.setTimeout(function () {
+    if (awayCardOpen()) return;
     startGuide({
       id: 'tutorial',
       steps: tutorialSteps(),
@@ -218,8 +222,8 @@ export async function boot() {
       go.addEventListener('pointerdown', function () {
         unlockAudio();
         dismissIntro();
-        if (S.away) showAwayCard();
-        maybeStartTutorial();
+        // If they were away, that card comes first and starts the guide after.
+        if (!showAwayCard(maybeStartTutorial)) maybeStartTutorial();
       });
     }
   } catch (err) {

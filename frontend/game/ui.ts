@@ -954,10 +954,13 @@ async function renderTileSpeedUp(index) {
 
 /* ================= AWAY SUMMARY ================= */
 
-/** The card shown once, on the first read back after a real absence. */
-export function showAwayCard() {
+/**
+ * The card shown once, on the first read back after a real absence.
+ * `onClose` lets the caller hold anything else back until it is dismissed.
+ */
+export function showAwayCard(onClose) {
   const report = S.away;
-  if (!report) return;
+  if (!report) return false;
   S.away = null;
 
   let host = document.getElementById('away');
@@ -992,7 +995,15 @@ export function showAwayCard() {
   host.querySelector('#awGo').addEventListener('pointerdown', function () {
     sfx.tap();
     host.classList.remove('on');
+    if (onClose) onClose();
   });
+  return true;
+}
+
+/** True while the away card is up — other overlays should wait their turn. */
+export function awayCardOpen() {
+  const host = document.getElementById('away');
+  return Boolean(host && host.classList.contains('on'));
 }
 
 /* ================= TOASTS ================= */
