@@ -235,10 +235,17 @@ async function main() {
   }
 
   step('persistence + audit');
+  const beforeReread = (await get('/api/farm')).body;
   const final = (await get('/api/farm')).body;
-  ok('the farm survives a fresh read',
-    final.farm.inventory.egg === 4 && final.farm.siloUsed > 0,
+  ok('two reads of an idle farm agree exactly',
+    JSON.stringify(final.farm.inventory) === JSON.stringify(beforeReread.farm.inventory)
+    && final.farm.coins === beforeReread.farm.coins
+    && final.farm.xp === beforeReread.farm.xp,
     `silo ${final.farm.siloUsed}/${final.farm.siloCap}, barn ${final.farm.barnUsed}/${final.farm.barnCap}`);
+  ok('the farm carries everything this run produced',
+    final.farm.siloUsed + final.farm.barnUsed > 0 && final.farm.level >= 1
+    && Object.keys(final.farm.inventory).length > 0,
+    `${Object.keys(final.farm.inventory).length} distinct items`);
 
   const badBody = await post('/api/plant', { tiles: [0], crop: 'wheat', extra: 'nope' });
   ok('unknown fields are rejected at the boundary', badBody.status === 400);

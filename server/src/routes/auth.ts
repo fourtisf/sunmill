@@ -34,6 +34,12 @@ export default async function authRoutes(app: FastifyInstance) {
     const expiresAt = new Date(Date.now() + NONCE_TTL_SECONDS * 1000);
     await prisma.authNonce.create({ data: { address: wallet, nonce, expiresAt } });
 
+    // Opportunistic sweep — keeps the challenge table from growing forever
+    // without needing a cron. Bounded to this wallet, so it stays cheap.
+    void prisma.authNonce
+      .deleteMany({ where: { address: wallet, expiresAt: { lt: new Date() } } })
+      .catch(() => undefined);
+
     return { nonce, message: challengeMessage(wallet, nonce), expiresAt: expiresAt.toISOString() };
   });
 
