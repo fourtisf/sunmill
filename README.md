@@ -65,10 +65,11 @@ Open http://localhost:3000. Outside production the login screen offers
 npm test                      # 34 unit tests: resolver, XP curve, capacity maths
 npm run typecheck             # both workspaces
 
-# 43 integration tests against a live Postgres + Redis: the whole production
+# 59 integration tests against a live Postgres + Redis: the whole production
 # chain through all four machines and all three pens, wallet login with real
-# signatures, and the tamper cases (a doctored order row, a poisoned market
-# cache, a replayed nonce, a forged session cookie).
+# signatures, the $HAY withdraw/deposit flows with the chain layer stubbed,
+# and the tamper cases (a doctored order row, a poisoned market cache, a
+# replayed nonce, a forged session cookie, a deposit confirmed five times).
 npm run test:integration --workspace=server
 
 node server/scripts/smoke.mjs             # 54 end-to-end API checks, real timers
@@ -118,7 +119,9 @@ address, treasury address, treasury key). Deposits are verified against the
 chain — recipient, amount and confirmations — before crediting, and `txHash` is
 unique in the database so the same deposit can never be credited twice.
 Withdrawals have a rolling 24h cap, a manual-review threshold, and refund the
-player if the broadcast fails.
+player if the broadcast fails. All of that is covered by integration tests that
+run with the flag on and the chain layer stubbed — including confirming the
+same deposit five times concurrently, which credits exactly once.
 
 **Do not enable the flag until ALFA signs off on emission and sinks.**
 
