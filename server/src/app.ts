@@ -19,9 +19,9 @@ import penRoutes from './routes/pen';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: env.isProd
-      ? { level: 'info' }
-      : { level: 'info', transport: undefined },
+    // Tests build the app in-process and drive it with inject(); request logs
+    // there are pure noise that buries the assertions.
+    logger: env.NODE_ENV === 'test' ? false : { level: 'info' },
     trustProxy: true,
     bodyLimit: 64 * 1024,
   });

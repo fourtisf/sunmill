@@ -65,8 +65,10 @@ Open http://localhost:3000. Outside production the login screen offers
 npm test                      # 34 unit tests: resolver, XP curve, capacity maths
 npm run typecheck             # both workspaces
 
-# 13 integration tests against a live Postgres + Redis. These are the ones
-# that prove a tampered order row or a poisoned market cache cannot pay out.
+# 43 integration tests against a live Postgres + Redis: the whole production
+# chain through all four machines and all three pens, wallet login with real
+# signatures, and the tamper cases (a doctored order row, a poisoned market
+# cache, a replayed nonce, a forged session cookie).
 npm run test:integration --workspace=server
 
 node server/scripts/smoke.mjs             # 54 end-to-end API checks, real timers
