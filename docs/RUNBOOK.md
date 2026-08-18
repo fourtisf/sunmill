@@ -45,6 +45,8 @@ Fill in `.env`. The ones that matter in production:
 | `CORS_ORIGINS` | Exactly the web origins, comma separated. Not `*`. |
 | `DATABASE_URL` | Append `?connection_limit=20&pool_timeout=20` to size the Prisma pool for the box. |
 | `TIME_SCALE` | See README. **Confirm with ALFA before locking.** |
+| `NEXT_PUBLIC_API_URL` | The public origin, e.g. `https://sunmil.fun` — **not** the internal port. Read from this file by `next.config.mjs` and baked into the client bundle at build time, so changing it needs a rebuild, not a restart. Leave it wrong and every browser calls its own machine. |
+| `INVITE_CODE` | The closed-beta gate. Empty means no gate. See §10. |
 | `HAY_ONCHAIN_ENABLED` | Leave `false` until emission and sinks are signed off. |
 | `TREASURY_PRIVATE_KEY` | Server-side only. Never in the client bundle, never in git. |
 | `ADMIN_TOKEN` | Min 24 chars. Second factor for `/api/admin`; unset means those routes do not exist. |
@@ -74,6 +76,10 @@ pm2 start ecosystem.config.js --env production
 pm2 save
 pm2 startup           # then run the command it prints
 ```
+
+After the first time, `scripts/deploy.sh [branch]` does the whole cycle —
+fetch, reset to the branch, `npm ci`, migrate, build, reload, health-check —
+and is safe to re-run. It never touches `.env` and never resets the database.
 
 Two processes come up: `sunmil-api` (Fastify, `API_PORT`) and `sunmil-web`
 (Next, `WEB_PORT`). Both read the repo-root `.env`.
