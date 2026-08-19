@@ -4,6 +4,8 @@
  * nothing derived from a secret goes out.
  */
 import { FastifyInstance } from 'fastify';
+import { prisma } from '../lib/db';
+import { redis } from '../lib/redis';
 import {
   CROPS, DAILY, EXPAND, FIELD_OPEN, ITEMS, LEVEL_UP_TEXT, MACHINES, MARKET,
   MAX_LEVEL_CURVE, MAX_TILES, ORDERS, PENS, SPEEDUP, TASK_TEMPLATES,
@@ -57,5 +59,24 @@ export default async function configRoutes(app: FastifyInstance) {
     },
   }));
 
-  app.get('/api/health', async () => ({ ok: true, time: new Date().toISOString() }));
+  /**
+   * Liveness by default — cheap, no dependencies, safe to poll.
+   *
+   * `?deep=1` also proves Postgres and Redis are reachable. Worth having its
+   * own switch: the routes a visitor hits first touch neither, so a database
+   * the API cannot reach shows up as a 500 on the first login rather than
+   * anywhere obvious, and this answers that in one request.
+   */
+  app.get('/api/health', async (req, reply) => {
+    const time = new Date().toISOString();
+    if (!(req.query as { deep?: string })?.deep) return { ok: true, time };
+
+    const [db, cache] = await Promise.all([
+      prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false),
+      redis.ping().then((r) => r === 'PONG').catch(() => false),
+    ]);
+    const ok = db && cache;
+    if (!ok) reply.code(503);
+    return { ok, time, postgres: db, redis: cache };
+  });
 }

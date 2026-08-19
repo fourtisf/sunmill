@@ -74,7 +74,13 @@ export async function buildApp(): Promise<FastifyInstance> {
       return reply.code(429).send({ error: 'rate_limited', message: 'Slow down a moment' });
     }
     req.log.error({ err }, 'unhandled error');
-    return reply.code(500).send({ error: 'server_error', message: 'Something went wrong' });
+    // The id is in the log line beside the stack. Handing it back turns "it
+    // failed" into one grep, and gives away nothing about what broke.
+    return reply.code(500).send({
+      error: 'server_error',
+      message: 'Something went wrong',
+      details: { reqId: req.id },
+    });
   });
 
   app.setNotFoundHandler((_req, reply) => {

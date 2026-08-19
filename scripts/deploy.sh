@@ -98,7 +98,13 @@ pm2 save
 
 echo "==> checking"
 sleep 4
-curl -fsS "http://127.0.0.1:${API_PORT}/api/health" >/dev/null && echo "    api ok"
+DEEP="$(curl -fsS "http://127.0.0.1:${API_PORT}/api/health?deep=1" 2>/dev/null || true)"
+case "$DEEP" in
+  *'"ok":true'*) echo "    api ok (postgres and redis reachable)" ;;
+  '') echo "    api is not answering — check: pm2 logs sunmil-api" >&2; exit 1 ;;
+  *) echo "    api is up but a dependency is not: $DEEP" >&2
+     echo "    the first login will 500 until this is fixed." >&2; exit 1 ;;
+esac
 curl -fsSI "http://127.0.0.1:${WEB_PORT}/" >/dev/null && echo "    web ok"
 
 echo "==> deployed $(git rev-parse --short HEAD) on $BRANCH"
