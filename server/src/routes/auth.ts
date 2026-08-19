@@ -12,7 +12,7 @@ import { requireInvite } from '../auth/invite';
 import { signSession } from '../auth/tokens';
 import {
   NONCE_TTL_SECONDS, challengeMessage, isAddress, makeNonce,
-  normaliseAddress, recoverSigner,
+  normaliseAddress, verifySignature,
 } from '../auth/wallet';
 
 const nonceBody = z.object({ address: z.string().min(1) }).strict();
@@ -26,7 +26,7 @@ export default async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/nonce', async (req) => {
     requireInvite(req);
     const { address } = nonceBody.parse(req.body);
-    if (!isAddress(address)) throw errors.badRequest('Not a wallet address');
+    if (!isAddress(address)) throw errors.badRequest('Not a Solana address');
     const wallet = normaliseAddress(address);
 
     // Rate-limited by address so an unauthenticated caller cannot mint nonces.
@@ -49,7 +49,7 @@ export default async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/wallet', async (req, reply) => {
     requireInvite(req);
     const body = walletBody.parse(req.body);
-    if (!isAddress(body.address)) throw errors.badRequest('Not a wallet address');
+    if (!isAddress(body.address)) throw errors.badRequest('Not a Solana address');
     const wallet = normaliseAddress(body.address);
     await consume(`addr:${wallet}`, 'auth-wallet', LIMITS.auth);
 
@@ -60,10 +60,15 @@ export default async function authRoutes(app: FastifyInstance) {
       take: 5,
     });
 
+    // Ed25519 verifies against a claimed key rather than recovering one, so
+    // each outstanding nonce is checked against the address the caller named.
+    // A signature over a different nonce, or by a different key, matches none.
     let matched: { id: string; nonce: string } | null = null;
     for (const c of candidates) {
-      const signer = recoverSigner(challengeMessage(wallet, c.nonce), body.signature);
-      if (signer && signer === wallet) { matched = c; break; }
+      if (verifySignature(challengeMessage(wallet, c.nonce), body.signature, wallet)) {
+        matched = c;
+        break;
+      }
     }
     if (!matched) throw errors.unauthorized();
 

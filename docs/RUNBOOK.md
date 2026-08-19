@@ -204,6 +204,16 @@ you reconstruct any balance dispute.
 
 ## 9. Before enabling on-chain $HAY
 
+> **Blocked, not merely unfinished.** `lib/chain.ts` targets an EVM chain while
+> wallet login is on Solana. Enabling the flag today would pay out to 0x
+> addresses no player ever signs in with, using an ERC-20 transfer for a token
+> that is not the token. It needs rewriting for SPL — Solana RPC, a treasury
+> keypair, deposits verified from transaction signatures rather than EVM
+> receipts — before any of the checklist below is worth working through. The
+> ledger, refund, daily-cap and review-hold logic around it is chain-agnostic
+> and stays.
+
+
 Do not set `HAY_ONCHAIN_ENABLED=true` until all of these hold:
 
 - [ ] ALFA has signed off on the emission schedule and the sinks.

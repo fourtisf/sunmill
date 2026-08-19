@@ -8,7 +8,7 @@
  * twice, and a client cannot advance its own progress.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Wallet } from 'ethers';
+import { createWallet } from './_wallet';
 import type { FastifyInstance } from 'fastify';
 import {
   DAILY, SPEEDUP, TASK_TEMPLATES, UPGRADES, dayKey, machineDef, penDef, scaled,
@@ -525,18 +525,18 @@ describe('admin withdrawals', () => {
   const ADMIN = 'integration-admin-token-0123456789';
 
   async function heldWithdrawal(): Promise<{ p: Player; transferId: string }> {
-    const wallet = Wallet.createRandom();
+    const wallet = createWallet();
     const nonce = await app.inject({
       method: 'POST', url: '/api/auth/nonce', payload: { address: wallet.address },
     });
     const login = await app.inject({
       method: 'POST', url: '/api/auth/wallet',
-      payload: { address: wallet.address, signature: await wallet.signMessage(nonce.json().message) },
+      payload: { address: wallet.address, signature: wallet.sign(nonce.json().message) },
     });
     const raw = login.headers['set-cookie'];
     const cookie = (Array.isArray(raw) ? raw[0] : String(raw)).split(';')[0];
     const user = await prisma.user.findUniqueOrThrow({
-      where: { wallet: wallet.address.toLowerCase() }, include: { farm: true },
+      where: { wallet: wallet.address }, include: { farm: true },
     });
 
     // Held withdrawals are created by the withdraw route, which needs the
@@ -546,7 +546,7 @@ describe('admin withdrawals', () => {
     const transfer = await prisma.hayTransfer.create({
       data: {
         userId: user.id, direction: 'withdraw', amount: '30',
-        wallet: wallet.address.toLowerCase(), status: 'review',
+        wallet: wallet.address, status: 'review',
       },
     });
     return { p: { cookie, farmId: user.farm!.id, userId: user.id }, transferId: transfer.id };

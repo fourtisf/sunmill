@@ -16,7 +16,7 @@
  * credited twice, and the route catches it.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Wallet } from 'ethers';
+import { createWallet } from './_wallet';
 import type { FastifyInstance } from 'fastify';
 
 const ENV_KEYS = [
@@ -97,25 +97,25 @@ interface Player { cookie: string; farmId: string; userId: string; address: stri
 
 /** A wallet-authenticated player — withdrawals need a wallet on the account. */
 async function walletPlayer(hay = '40'): Promise<Player> {
-  const wallet = Wallet.createRandom();
+  const wallet = createWallet();
   const nonce = await app.inject({
     method: 'POST', url: '/api/auth/nonce', payload: { address: wallet.address },
   });
   const { message } = nonce.json();
   const login = await app.inject({
     method: 'POST', url: '/api/auth/wallet',
-    payload: { address: wallet.address, signature: await wallet.signMessage(message) },
+    payload: { address: wallet.address, signature: wallet.sign(message) },
   });
   expect(login.statusCode).toBe(200);
   const raw = login.headers['set-cookie'];
   const cookie = (Array.isArray(raw) ? raw[0] : String(raw)).split(';')[0];
 
   const user = await prisma.user.findUniqueOrThrow({
-    where: { wallet: wallet.address.toLowerCase() },
+    where: { wallet: wallet.address },
     include: { farm: true },
   });
   await prisma.farm.update({ where: { id: user.farm!.id }, data: { hay } });
-  return { cookie, farmId: user.farm!.id, userId: user.id, address: wallet.address.toLowerCase() };
+  return { cookie, farmId: user.farm!.id, userId: user.id, address: wallet.address };
 }
 
 function call(p: Player, method: 'GET' | 'POST', url: string, payload?: unknown) {

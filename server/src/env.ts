@@ -86,6 +86,15 @@ export function onChainReady(): boolean {
   );
 }
 
+if (env.HAY_ONCHAIN_ENABLED) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[sunmil] HAY_ONCHAIN_ENABLED is set, but lib/chain.ts still targets an EVM'
+    + ' chain while wallet login is on Solana. Payouts would go to addresses no'
+    + ' player signs in with. Rewrite it for SPL before turning this on.',
+  );
+}
+
 if (env.isProd && !env.INVITE_CODE) {
   // eslint-disable-next-line no-console
   console.warn('[sunmil] INVITE_CODE unset — the beta gate is open and anyone can create an account.');

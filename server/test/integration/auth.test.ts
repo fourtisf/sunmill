@@ -1,5 +1,5 @@
 /**
- * Wallet login, driven with a real signing key.
+ * Wallet login, driven with a real ed25519 signing key.
  *
  * The nonce flow is the only thing standing between a wallet address and
  * somebody else's farm, so it is worth proving with actual signatures rather
@@ -8,7 +8,9 @@
  * cookie is httpOnly.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Wallet } from 'ethers';
+import { createWallet } from './_wallet';
+
+const Wallet = { createRandom: createWallet };
 import type { FastifyInstance } from 'fastify';
 import { challengeMessage } from '../../src/auth/wallet';
 
@@ -59,14 +61,14 @@ describe('wallet login', () => {
   maybe('a valid signature opens a session and creates the farm', async () => {
     const wallet = Wallet.createRandom();
     const { message } = await getNonce(wallet.address);
-    const signature = await wallet.signMessage(message);
+    const signature = wallet.sign(message);
 
     const res = await app.inject({
       method: 'POST', url: '/api/auth/wallet',
       payload: { address: wallet.address, signature },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json().wallet).toBe(wallet.address.toLowerCase());
+    expect(res.json().wallet).toBe(wallet.address);
 
     const setCookie = res.headers['set-cookie'];
     const header = Array.isArray(setCookie) ? setCookie[0] : String(setCookie);
@@ -79,7 +81,7 @@ describe('wallet login', () => {
     expect(farm.json().farm.coins).toBe('640');
 
     const me = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie } });
-    expect(me.json().user.wallet).toBe(wallet.address.toLowerCase());
+    expect(me.json().user.wallet).toBe(wallet.address);
   });
 
   maybe('signing in again returns the same farm, not a new one', async () => {
@@ -89,7 +91,7 @@ describe('wallet login', () => {
       const { message } = await getNonce(wallet.address);
       const res = await app.inject({
         method: 'POST', url: '/api/auth/wallet',
-        payload: { address: wallet.address, signature: await wallet.signMessage(message) },
+        payload: { address: wallet.address, signature: wallet.sign(message) },
       });
       expect(res.statusCode).toBe(200);
       return cookieFrom(res as never);
@@ -111,7 +113,7 @@ describe('wallet login', () => {
   maybe('a nonce cannot be replayed', async () => {
     const wallet = Wallet.createRandom();
     const { message } = await getNonce(wallet.address);
-    const signature = await wallet.signMessage(message);
+    const signature = wallet.sign(message);
 
     const first = await app.inject({
       method: 'POST', url: '/api/auth/wallet', payload: { address: wallet.address, signature },
@@ -132,7 +134,7 @@ describe('wallet login', () => {
     // The attacker signs the victim's challenge with their own key.
     const res = await app.inject({
       method: 'POST', url: '/api/auth/wallet',
-      payload: { address: victim.address, signature: await attacker.signMessage(message) },
+      payload: { address: victim.address, signature: attacker.sign(message) },
     });
     expect(res.statusCode).toBe(401);
   });
@@ -140,7 +142,7 @@ describe('wallet login', () => {
   maybe('a signature over a different message is rejected', async () => {
     const wallet = Wallet.createRandom();
     await getNonce(wallet.address);
-    const forged = await wallet.signMessage(challengeMessage(wallet.address, 'a-nonce-we-never-issued'));
+    const forged = wallet.sign(challengeMessage(wallet.address, 'a-nonce-we-never-issued'));
 
     const res = await app.inject({
       method: 'POST', url: '/api/auth/wallet',
@@ -158,7 +160,7 @@ describe('wallet login', () => {
 
     const res = await app.inject({
       method: 'POST', url: '/api/auth/wallet',
-      payload: { address: wallet.address, signature: await wallet.signMessage(message) },
+      payload: { address: wallet.address, signature: wallet.sign(message) },
     });
     expect(res.statusCode).toBe(401);
   });
@@ -175,7 +177,7 @@ describe('wallet login', () => {
     const { message } = await getNonce(wallet.address);
     const login = await app.inject({
       method: 'POST', url: '/api/auth/wallet',
-      payload: { address: wallet.address, signature: await wallet.signMessage(message) },
+      payload: { address: wallet.address, signature: wallet.sign(message) },
     });
     const cookie = cookieFrom(login as never);
     expect((await app.inject({ method: 'GET', url: '/api/farm', headers: { cookie } })).statusCode).toBe(200);

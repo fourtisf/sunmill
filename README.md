@@ -256,6 +256,22 @@ the letters, so there is no font to load or licence. Raster sizes are generated
 from those vectors by `frontend/scripts/build-brand-assets.mjs`, never
 hand-edited. Usage rules, palette and minimum sizes: `docs/BRAND.md`.
 
+## Chain
+
+Wallet login is **Solana**: the server issues a nonce, the wallet signs it with
+its ed25519 key, and the server verifies that signature against the base58
+public key — no address recovery, because on ed25519 a signature that verifies
+*is* the proof. Base58 and the verification are implemented in
+`server/src/auth/wallet.ts` rather than pulled in; Node verifies ed25519
+natively and base58 is twenty lines, so neither is worth a dependency on the
+path that decides who a player is.
+
+`server/src/lib/chain.ts` is the exception and is **not** Solana. It was
+written for Robinhood Chain per the original handoff and still speaks ERC-20.
+`HAY_ONCHAIN_ENABLED` is off, the server warns loudly if anyone sets it, and
+off-chain `hay` is unaffected — but it must be rewritten for SPL before real
+$HAY can move. See `docs/RUNBOOK.md` §9.
+
 ## Closed beta
 
 `INVITE_CODE` in `.env` puts a code gate on the landing page. It is enforced on

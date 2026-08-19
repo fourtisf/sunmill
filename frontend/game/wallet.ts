@@ -1,87 +1,108 @@
 /**
- * Wallet discovery (EIP-6963).
+ * Solana wallet discovery and signing.
  *
- * Reading `window.ethereum` was never safe with more than one extension
- * installed: whichever injects last wins the property, and the player has no
- * say. On a browser carrying both Phantom and MetaMask, Phantom takes it and
- * then refuses with "Unable to find any account for 60" — SLIP-44's coin type
- * for Ethereum — because its EVM side is empty. MetaMask, sitting right there,
- * is never asked.
+ * This used to read `window.ethereum` and ask for an EVM signature, which is
+ * why Phantom answered "this website is trying to use Ethereum, which is not
+ * supported by this Solana account". It was right to refuse. SUNMIL is on
+ * Solana, so the wallet is asked for what it actually holds.
  *
- * EIP-6963 inverts that: the page announces interest, every installed wallet
- * answers with its own handle, and the player picks. The legacy path stays as
- * a fallback for wallets that have not adopted it.
+ * Discovery walks the known injection points rather than a single global,
+ * because more than one wallet can be installed and the last one to load
+ * should not get to decide for the player.
  */
-export interface Eip1193 {
-  request(args: { method: string; params?: unknown[] }): Promise<unknown>;
+export interface SolanaProvider {
+  isPhantom?: boolean;
+  isSolflare?: boolean;
+  isBackpack?: boolean;
+  connect(opts?: { onlyIfTrusted?: boolean }): Promise<{ publicKey?: { toString(): string } }>;
+  publicKey?: { toString(): string } | null;
+  signMessage(message: Uint8Array, encoding?: string): Promise<{ signature: Uint8Array } | Uint8Array>;
 }
 
 export interface WalletChoice {
   id: string;
   name: string;
   icon: string;
-  provider: Eip1193;
+  provider: SolanaProvider;
 }
 
-interface AnnounceDetail {
-  info?: { uuid?: string; name?: string; icon?: string; rdns?: string };
-  provider?: Eip1193;
+type Win = Record<string, unknown> & { phantom?: Record<string, unknown> };
+
+/** Where each wallet puts itself. Order only decides listing, never priority. */
+function injected(): WalletChoice[] {
+  if (typeof window === 'undefined') return [];
+  const w = window as unknown as Win;
+  const phantom = (w.phantom as Record<string, unknown> | undefined)?.solana;
+  const candidates: Array<[string, string, unknown]> = [
+    ['app.phantom', 'Phantom', phantom],
+    ['io.solflare', 'Solflare', w.solflare],
+    ['app.backpack', 'Backpack', (w.backpack as Record<string, unknown> | undefined)?.solana ?? w.backpack],
+    ['com.coinbase', 'Coinbase Wallet', (w.coinbaseSolana as unknown)],
+    // Last, and only if nothing above claimed it: whoever took window.solana.
+    ['window.solana', 'Solana wallet', w.solana],
+  ];
+
+  const found = new Map<string, WalletChoice>();
+  for (const [id, name, provider] of candidates) {
+    const p = provider as SolanaProvider | undefined;
+    if (!p || typeof p.connect !== 'function' || typeof p.signMessage !== 'function') continue;
+    // window.solana is usually one of the above wearing a second hat.
+    if (id === 'window.solana' && [...found.values()].some((f) => f.provider === p)) continue;
+    found.set(id, { id, name: label(p, name), icon: '', provider: p });
+  }
+  return [...found.values()];
 }
 
-/** Best-effort name for a provider that predates EIP-6963. */
-function legacyName(p: Record<string, unknown>): string {
-  if (p.isMetaMask) return 'MetaMask';
+function label(p: SolanaProvider, fallback: string): string {
   if (p.isPhantom) return 'Phantom';
-  if (p.isCoinbaseWallet) return 'Coinbase Wallet';
-  if (p.isRabby) return 'Rabby';
-  if (p.isBraveWallet) return 'Brave Wallet';
-  if (p.isTrust || p.isTrustWallet) return 'Trust Wallet';
-  return 'Browser wallet';
+  if (p.isSolflare) return 'Solflare';
+  if (p.isBackpack) return 'Backpack';
+  return fallback;
 }
 
-function legacyWallets(): WalletChoice[] {
-  const eth = (window as unknown as { ethereum?: Record<string, unknown> }).ethereum;
-  if (!eth) return [];
-  // Some extensions publish every injected provider here when they collide.
-  const many = eth.providers;
-  const list = Array.isArray(many) && many.length ? (many as Record<string, unknown>[]) : [eth];
-  return list.map((p, i) => ({
-    id: `legacy:${i}:${legacyName(p)}`,
-    name: legacyName(p),
-    icon: '',
-    provider: p as unknown as Eip1193,
-  }));
+export function discoverWallets(): Promise<WalletChoice[]> {
+  // Extensions inject before the page runs, so there is nothing to wait for —
+  // kept async so callers do not have to change if that stops being true.
+  return Promise.resolve(injected());
+}
+
+/** Connect, and return the account's base58 address. */
+export async function connect(choice: WalletChoice): Promise<string> {
+  const res = await choice.provider.connect();
+  const key = res?.publicKey ?? choice.provider.publicKey;
+  const address = key?.toString();
+  if (!address) throw new Error('wallet returned no account');
+  return address;
 }
 
 /**
- * Ask who is out there. Resolves after a short window because announcements
- * are fire-and-forget — there is no count to wait for.
+ * Sign the challenge. Wallets differ in what they hand back — Phantom returns
+ * `{ signature }`, some return the bytes directly — so both are accepted.
  */
-export function discoverWallets(windowMs = 180): Promise<WalletChoice[]> {
-  return new Promise((resolve) => {
-    if (typeof window === 'undefined') return resolve([]);
-    const found = new Map<string, WalletChoice>();
+export async function signMessage(choice: WalletChoice, message: string): Promise<string> {
+  const bytes = new TextEncoder().encode(message);
+  const out = await choice.provider.signMessage(bytes, 'utf8');
+  const sig = out instanceof Uint8Array ? out : out?.signature;
+  if (!sig) throw new Error('wallet returned no signature');
+  return base58Encode(sig);
+}
 
-    const onAnnounce = (event: Event) => {
-      const detail = (event as CustomEvent<AnnounceDetail>).detail;
-      const info = detail?.info;
-      if (!info || !detail?.provider) return;
-      const id = info.rdns || info.uuid;
-      if (!id || found.has(id)) return;
-      found.set(id, {
-        id,
-        name: info.name || 'Wallet',
-        icon: info.icon || '',
-        provider: detail.provider,
-      });
-    };
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
-    window.addEventListener('eip6963:announceProvider', onAnnounce);
-    window.dispatchEvent(new Event('eip6963:requestProvider'));
-
-    window.setTimeout(() => {
-      window.removeEventListener('eip6963:announceProvider', onAnnounce);
-      resolve(found.size ? [...found.values()] : legacyWallets());
-    }, windowMs);
-  });
+/** The server speaks base58; wallets hand back raw bytes. */
+export function base58Encode(bytes: Uint8Array): string {
+  const digits = [0];
+  for (const byte of bytes) {
+    let carry = byte;
+    for (let i = 0; i < digits.length; i += 1) {
+      carry += digits[i] << 8;
+      digits[i] = carry % 58;
+      carry = (carry / 58) | 0;
+    }
+    while (carry > 0) { digits.push(carry % 58); carry = (carry / 58) | 0; }
+  }
+  let out = '';
+  for (const byte of bytes) { if (byte !== 0) break; out += '1'; }
+  for (let i = digits.length - 1; i >= 0; i -= 1) out += B58[digits[i]];
+  return out;
 }

@@ -134,7 +134,7 @@ await browser.close();
 writeFileSync(resolve(root, 'public/manifest.webmanifest'), JSON.stringify({
   name: 'SUNMIL — Farm & Craft Tycoon',
   short_name: 'SUNMIL',
-  description: 'A production-chain farm on Robinhood Chain.',
+  description: 'A production-chain farm on Solana.',
   start_url: '/',
   display: 'standalone',
   orientation: 'portrait',

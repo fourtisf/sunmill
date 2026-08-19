@@ -1,5 +1,20 @@
 /**
- * Robinhood Chain access for $HAY (HANDOFF §7).
+ * On-chain $HAY (HANDOFF §7).
+ *
+ * ⚠ THIS MODULE TARGETS AN EVM CHAIN AND SUNMIL IS ON SOLANA.
+ *
+ * It was written against Robinhood Chain, per the handoff: ethers, an ERC-20
+ * contract, 0x addresses, a secp256k1 treasury key. Wallet login has since
+ * moved to Solana, so the addresses this would pay out to are not the
+ * addresses players sign in with, and the token it would transfer is not the
+ * token. Rewriting it means an SPL transfer against a Solana RPC, a treasury
+ * keypair, and deposit checks read from Solana transaction signatures rather
+ * than EVM receipts.
+ *
+ * It stays here because the ledger, refund, daily-cap and review-hold logic
+ * around it are chain-agnostic and tested. HAY_ONCHAIN_ENABLED is off, the
+ * server warns loudly if anyone sets it, and off-chain hay is unaffected.
+ * Nothing below runs until that flag AND every chain setting are present.
  *
  * Nothing in here runs unless HAY_ONCHAIN_ENABLED is set AND the RPC, token,
  * treasury address and treasury key are all present — the treasury key lives

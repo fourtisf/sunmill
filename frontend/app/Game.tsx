@@ -41,7 +41,7 @@ export default function Game() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="brandmark" src="/brand/sunmil-logo-stacked.svg" alt="SUNMIL" width={760} height={600} />
           <div className="tl" id="introTagline">Farm &amp; Craft Tycoon</div>
-          <p id="introBlurb">A production-chain farm on Robinhood Chain. Grow crops, feed animals, run the machines, fill the truck.</p>
+          <p id="introBlurb">A production-chain farm on Solana. Grow crops, feed animals, run the machines, fill the truck.</p>
           <div className="hint">
             <span className="d" />
             <span id="introHint1"><b>Sweep to plant.</b> Pick a seed below, then drag across your fields in one motion.</span>

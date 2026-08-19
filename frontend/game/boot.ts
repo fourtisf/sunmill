@@ -16,7 +16,7 @@ import {
 import { errorText, initLang, t } from './i18n';
 import { SITE_DOMAIN } from './brand';
 import { demoSnapshot } from './demo';
-import { discoverWallets, type WalletChoice } from './wallet';
+import { connect, discoverWallets, signMessage, type WalletChoice } from './wallet';
 import { initAudio, unlockAudio } from './audio';
 import { mountJoystick, setJoystickVisible, unmountJoystick } from './joystick';
 import { startGuide, stopGuide, tutorialSteps } from './guide';
@@ -139,9 +139,10 @@ function walletError(err: unknown, wallet = ''): string {
   if (code === -32002) return t('login.pending');
   if (code === 4900 || code === 4901) return t('login.disconnected');
   const message = String((err as { message?: string } | null)?.message ?? '');
-  // Phantom's wording for "this wallet has no Ethereum account"; 60 is the
-  // SLIP-44 coin type. The player needs to switch wallets, not retry.
-  if (/account for 60/i.test(message)) return t('login.noAccount', { wallet });
+  // Phantom's wording when the account cannot do what was asked. It used to
+  // mean "no Ethereum account"; now the app asks for Solana, so seeing it
+  // again means the account itself is the wrong kind.
+  if (/not supported|account for 60/i.test(message)) return t('login.noAccount', { wallet });
   return message ? `${t('login.failed')} (${message})` : t('login.failed');
 }
 
@@ -239,13 +240,9 @@ function renderLogin(problem?: string) {
 
   const signInWith = async (choice: WalletChoice) => {
     try {
-      const accounts = await choice.provider.request({ method: 'eth_requestAccounts' }) as string[];
-      const address = accounts?.[0];
-      if (!address) return fail(t('login.noAccount', { wallet: choice.name }));
+      const address = await connect(choice);
       const { message } = await api.nonce(address);
-      const signature = await choice.provider.request({
-        method: 'personal_sign', params: [message, address],
-      }) as string;
+      const signature = await signMessage(choice, message);
       await api.loginWallet(address, signature);
       await afterLogin();
     } catch (err) {
