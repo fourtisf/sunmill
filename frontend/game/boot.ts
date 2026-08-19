@@ -16,6 +16,7 @@ import {
 import { errorText, initLang, t } from './i18n';
 import { SITE_DOMAIN } from './brand';
 import { demoSnapshot } from './demo';
+import { discoverWallets, type WalletChoice } from './wallet';
 import { initAudio, unlockAudio } from './audio';
 import { mountJoystick, setJoystickVisible, unmountJoystick } from './joystick';
 import { startGuide, stopGuide, tutorialSteps } from './guide';
@@ -131,13 +132,16 @@ function installDemoScene() {
  * message rather than swallowing it — an error nobody can read is an error
  * nobody can report.
  */
-function walletError(err: unknown): string {
+function walletError(err: unknown, wallet = ''): string {
   if (err instanceof NetError) return errorText(err.code, err.message);
   const code = (err as { code?: number | string } | null)?.code;
   if (code === 4001) return t('login.rejected');
   if (code === -32002) return t('login.pending');
   if (code === 4900 || code === 4901) return t('login.disconnected');
-  const message = (err as { message?: string } | null)?.message;
+  const message = String((err as { message?: string } | null)?.message ?? '');
+  // Phantom's wording for "this wallet has no Ethereum account"; 60 is the
+  // SLIP-44 coin type. The player needs to switch wallets, not retry.
+  if (/account for 60/i.test(message)) return t('login.noAccount', { wallet });
   return message ? `${t('login.failed')} (${message})` : t('login.failed');
 }
 
@@ -220,6 +224,7 @@ function renderLogin(problem?: string) {
     + '<p>' + t('login.blurb') + '</p>'
     + '<div id="loginErr" class="hint" style="display:none"><span class="d"></span><span id="loginErrTxt"></span></div>'
     + '<button class="btn gold go" id="btnWallet">' + t('login.wallet') + '</button>'
+    + '<div id="walletPick" class="wallet-pick" style="display:none"></div>'
     + (cfg().features.devLogin
       ? '<button class="btn wood go" id="btnGuest" style="margin-top:10px">' + t('login.guest') + '</button>'
       : '')
@@ -232,24 +237,49 @@ function renderLogin(problem?: string) {
   };
   if (problem) fail(problem);
 
-  document.getElementById('btnWallet').addEventListener('pointerdown', async function () {
-    unlockAudio();
-    const eth = window.ethereum;
-    if (!eth) return fail(t('login.noWallet'));
+  const signInWith = async (choice: WalletChoice) => {
     try {
-      const accounts = await eth.request({ method: 'eth_requestAccounts' });
-      const address = accounts[0];
+      const accounts = await choice.provider.request({ method: 'eth_requestAccounts' }) as string[];
+      const address = accounts?.[0];
+      if (!address) return fail(t('login.noAccount', { wallet: choice.name }));
       const { message } = await api.nonce(address);
-      const signature = await eth.request({ method: 'personal_sign', params: [message, address] });
+      const signature = await choice.provider.request({
+        method: 'personal_sign', params: [message, address],
+      }) as string;
       await api.loginWallet(address, signature);
       await afterLogin();
     } catch (err) {
-      // A wallet that refused, a popup already waiting, and a server that never
-      // answered are three different problems, and only one of them is the
-      // player's to solve. Saying "could not sign in with that wallet" for all
-      // three is how this stayed unexplained for days.
-      fail(walletError(err));
+      // A wallet that refused, a popup already waiting, a wallet with no EVM
+      // account, and a server that never answered are four different problems,
+      // and only some of them are the player's to solve. Saying "could not sign
+      // in with that wallet" for all four is how this stayed unexplained.
+      fail(walletError(err, choice.name));
     }
+  };
+
+  /** More than one wallet is installed, so the player chooses rather than the
+   *  last extension to load choosing for them. */
+  const showPicker = (wallets: WalletChoice[]) => {
+    const host = document.getElementById('walletPick');
+    if (!host) return;
+    host.innerHTML = '<div class="pick-title">' + t('login.pick') + '</div>'
+      + wallets.map((w, i) =>
+        '<button class="btn wood pick" data-i="' + i + '">'
+        + (w.icon ? '<img src="' + w.icon + '" alt="" width="20" height="20">' : '')
+        + '<span></span></button>').join('');
+    host.querySelectorAll('.pick').forEach((node, i) => {
+      node.querySelector('span').textContent = wallets[i].name;
+      node.addEventListener('pointerdown', () => { host.innerHTML = ''; signInWith(wallets[i]) });
+    });
+    host.style.display = '';
+  };
+
+  document.getElementById('btnWallet').addEventListener('pointerdown', async function () {
+    unlockAudio();
+    const wallets = await discoverWallets();
+    if (!wallets.length) return fail(t('login.noWallet'));
+    if (wallets.length === 1) return signInWith(wallets[0]);
+    showPicker(wallets);
   });
 
   const guest = document.getElementById('btnGuest');

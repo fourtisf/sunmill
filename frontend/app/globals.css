@@ -480,6 +480,16 @@ body.pregame #ui > *, body.pregame #joystick{ display:none !important }
 }
 .official-note b{ display:block; font-size:15px; color:#5c3618; letter-spacing:.5px }
 .official-note span{ display:block; margin-top:3px; font-size:11.5px; color:#8a6a42; line-height:1.35 }
+.wallet-pick{ margin-top:10px; display:flex; flex-direction:column; gap:8px }
+.wallet-pick .pick-title{
+  font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-3); margin-bottom:2px;
+}
+.wallet-pick .pick{
+  display:flex; align-items:center; justify-content:center; gap:9px;
+  width:100%; font-size:15px; padding:11px 14px;
+}
+.wallet-pick .pick img{ width:20px; height:20px; border-radius:5px; display:block }
 .icard .official{
   margin-top:14px; padding-top:12px; border-top:2px solid rgba(132,81,42,.18);
   font-size:11.5px; color:var(--ink-3); letter-spacing:.2px;
