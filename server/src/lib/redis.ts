@@ -10,7 +10,15 @@ import { env } from '../env';
 export const redis = new Redis(env.REDIS_URL, {
   maxRetriesPerRequest: 3,
   lazyConnect: false,
-  enableOfflineQueue: true,
+  // The whole point of every try/catch below is that losing Redis degrades to
+  // a cache miss rather than an error. An offline queue defeats that: while
+  // the connection is down, commands are held rather than rejected, so the
+  // caller waits instead of degrading, and every rate-limited route — which is
+  // all of them — stalls until the queue drains or gives up. Failing fast is
+  // what the catches are written for.
+  enableOfflineQueue: false,
+  // Belt and braces for a connection that is up but wedged.
+  commandTimeout: 2000,
 });
 
 redis.on('error', (err) => {

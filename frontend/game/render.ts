@@ -402,7 +402,48 @@ export function render(t) {
  * Cosmetic simulation only — animals wandering, the farmer walking, particles.
  * No timer here decides anything; readiness comes from the server snapshot.
  */
+/**
+ * Slow drift across the island, used behind the login card. The landing page
+ * is the farm itself rather than a flat colour, and a still frame reads as a
+ * screenshot — this keeps it breathing without costing anything, since the
+ * loop is already running.
+ */
+let ambient = 0;
+
+/** Frame the whole island rather than the playable content box. */
+function fitAmbient() {
+  resize();
+  const l = WD.iso(0, ISO_D).x, r = WD.iso(ISO_W, 0).x;
+  const tp = WD.iso(0, 0).y, bt = WD.iso(ISO_W, ISO_D).y + 96;
+  // Pull back past a snug fit: the login card covers the middle of a phone
+  // screen, so the farm has to read from whatever shows around its edges.
+  const zw = VW / (r - l), zh = VH / (bt - tp);
+  // Landscape can hold the whole island, and seeing all of it at once is the
+  // better picture. A phone cannot: fitting it by width leaves two empty bands
+  // of sky and grass, so there we fill the screen and show a slice instead.
+  const z = VH > VW
+    ? clamp(zh * 0.95, 0.5, 1.7)
+    : clamp(Math.min(zw, zh) * 1.12, 0.34, 0.9);
+  cam.z = z; cam.tz = z;
+}
+
+export function setAmbient(on) {
+  ambient = on ? (ambient || 0.0001) : 0;
+  if (on) fitAmbient();
+}
+
 export function step(dt) {
+  if (ambient) {
+    ambient += dt;
+    const midX = (WD.iso(0, ISO_D).x + WD.iso(ISO_W, 0).x) / 2;
+    const midY = (WD.iso(0, 0).y + WD.iso(ISO_W, ISO_D).y + 96) / 2;
+    cam.x = VW / 2 - midX * cam.z + Math.sin(ambient * 0.10) * VW * 0.10;
+    // Landscape sits the island low, so the yard reads under the card. Portrait
+    // is already filled edge to edge, so it just centres.
+    const anchor = VH > VW ? 0.5 : 0.7;
+    cam.y = VH * anchor - midY * cam.z + Math.sin(ambient * 0.065 + 1.4) * VH * 0.03;
+    clampCam();
+  }
   if (ready()) {
     for (const def of cfg().pens) {
       const view = S.snap.farm.pens.find(function (p) { return p.pen === def.id });

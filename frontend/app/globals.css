@@ -303,11 +303,24 @@ body{
 /* ---------- intro ---------- */
 #intro{
   position:absolute;inset:0;z-index:60;display:grid;place-items:center;padding:18px;
-  background:radial-gradient(ellipse at 50% 30%,#6FA83E,#2E4A1E 75%);
+  /* The landing page is the farm itself: the canvas is already drawing the
+     island behind this, so all that is needed here is enough scrim to keep the
+     card readable and pull the eye to the middle. */
+  background:
+    radial-gradient(ellipse at 50% 44%, rgba(20,32,8,.04), rgba(14,24,5,.42) 82%),
+    linear-gradient(rgba(10,18,4,.14), rgba(10,18,4,.14));
+  backdrop-filter:blur(1px);
+  -webkit-backdrop-filter:blur(1px);
 }
+/* Nothing from the running game shows until there is a game: the HUD, rail,
+   dock and joystick are all built at boot, and without this they would sit on
+   top of the login card the moment the background stopped being opaque. */
+body.pregame #ui > *, body.pregame #joystick{ display:none !important }
 #intro.gone{animation:fadeout .5s forwards}
 @keyframes fadeout{to{opacity:0;visibility:hidden}}
-.icard{max-width:400px;text-align:center;padding:26px 22px 22px}
+.icard{max-width:400px;text-align:center;padding:26px 22px 22px;
+  box-shadow:0 5px 0 var(--wood-3),0 18px 44px rgba(0,0,0,.5),
+    inset 0 2px 0 rgba(255,255,255,.85), inset 0 -3px 0 rgba(150,110,60,.25)}
 .icard .logo{font-size:46px;font-weight:700;letter-spacing:2px;color:var(--wood-3);line-height:1;text-shadow:0 3px 0 rgba(255,255,255,.7)}
 .icard .tl{font-size:12px;font-weight:600;letter-spacing:4px;color:var(--ink-2);text-transform:uppercase;margin-top:3px}
 .icard p{font-size:13.5px;line-height:1.55;color:var(--ink-2);font-weight:400;margin:14px 0 4px}

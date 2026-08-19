@@ -16,6 +16,8 @@ type Listener = () => void;
 export const S = {
   config: null as GameConfig | null,
   snap: null as Snapshot | null,
+  /** True while `snap` is the decorative pre-login scene, not a real farm. */
+  demo: false,
   /** serverTime − client clock, so clock skew never affects a progress bar. */
   serverOffsetMs: 0,
   /** Client-only view state. */
@@ -62,6 +64,9 @@ export function setConfig(config: GameConfig): void {
 
 export function apply(snapshot: Snapshot): Snapshot {
   S.snap = snapshot;
+  // Any snapshot arriving through here is a real one unless the caller says
+  // otherwise straight after; the pre-login scene sets the flag itself.
+  S.demo = false;
   S.serverOffsetMs = Date.parse(snapshot.serverTime) - Date.now();
   // The away summary arrives once, on the first read back — hold it until the
   // player has actually seen the card.

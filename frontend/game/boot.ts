@@ -8,13 +8,14 @@
  */
 import { api, NetError } from './net';
 import { apply, cfg, S, setConfig, snap } from './state';
-import { getHIT, cam, clampCam, initWorld, onResize, render, step } from './render';
+import { getHIT, cam, clampCam, fitCamera, initWorld, onResize, render, setAmbient, step } from './render';
 import {
   awayCardOpen, bootUI, buildDock, buildRail, showAwayCard, syncBadges, syncHUD,
   tickPanels, toast,
 } from './ui';
 import { initLang, t } from './i18n';
 import { SITE_DOMAIN } from './brand';
+import { demoSnapshot } from './demo';
 import { initAudio, unlockAudio } from './audio';
 import { mountJoystick, setJoystickVisible, unmountJoystick } from './joystick';
 import { startGuide, stopGuide, tutorialSteps } from './guide';
@@ -108,6 +109,17 @@ async function showLogin() {
   renderLogin();
 }
 
+/**
+ * Put something worth looking at behind the card. Only when there is no real
+ * farm — a returning player gets their own, drifting, which is better.
+ */
+function installDemoScene() {
+  if (S.snap || !S.config) return;
+  apply(demoSnapshot(S.config));
+  S.demo = true;   // after apply(), which clears it for real snapshots
+  fitCamera();
+}
+
 /** The real address, so a player has something to check a fake against. */
 const officialLine = () =>
   '<div class="official">' + t('brand.official') + ' <b>' + SITE_DOMAIN + '</b></div>';
@@ -117,6 +129,10 @@ function showCard(mode: string): HTMLElement | null {
   const card = intro.querySelector('.icard') as HTMLElement | null;
   intro.classList.remove('gone');
   (intro as HTMLElement).style.display = '';
+  // The world drifts behind the card, and the game's own chrome stays hidden
+  // until there is a farm to put in it.
+  document.body.classList.add('pregame');
+  setAmbient(true);
   if (!card || card.dataset.mode === mode) return null;
   card.dataset.mode = mode;
   return card;
@@ -258,6 +274,10 @@ function maybeStartTutorial() {
 function dismissIntro() {
   const intro = document.getElementById('intro');
   intro.classList.add('gone');
+  // Hand the camera back to the player and let the HUD in.
+  setAmbient(false);
+  fitCamera();
+  document.body.classList.remove('pregame');
   setTimeout(function () { intro.style.display = 'none' }, 520);
 }
 
@@ -281,6 +301,13 @@ export async function boot() {
   initWorld();
   bootUI();
   mountJoystick();
+  // Every path into the game passes through #intro — the invite gate, the login
+  // card, and the first-run card a returning player still taps through. All of
+  // them now sit on the live world, so the game's own chrome stays out until
+  // that card is dismissed.
+  document.body.classList.add('pregame');
+  setAmbient(true);
+  installDemoScene();
   started = true;
   startLoop();
 
@@ -289,7 +316,7 @@ export async function boot() {
   document.addEventListener('visibilitychange', function () { if (!document.hidden) sync() });
 
   // Slow safety net on top of the timer-driven syncs.
-  idleTimer = setInterval(function () { if (!document.hidden && S.snap) sync() }, IDLE_SYNC_MS);
+  idleTimer = setInterval(function () { if (!document.hidden && S.snap && !S.demo) sync() }, IDLE_SYNC_MS);
 
   localiseIntro();
 

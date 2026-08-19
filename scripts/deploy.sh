@@ -40,6 +40,10 @@ npm run prisma:deploy --workspace=server
 echo "==> building"
 # NEXT_PUBLIC_API_URL is read out of the root .env by next.config.mjs and baked
 # into the client bundle here, so a wrong value needs a rebuild, not a restart.
+# Next's build cache keys on source, not on that file — so a corrected .env
+# with untouched sources could otherwise be served from a stale chunk. A cold
+# build costs under a minute and removes the question.
+rm -rf frontend/.next
 npm run build
 
 echo "==> reloading"
