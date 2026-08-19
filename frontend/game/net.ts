@@ -9,6 +9,14 @@ import type {
 
 const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '');
 
+// Baked in at build time from the repo-root .env. Printed once because when it
+// is wrong every call fails in a way that looks like something else entirely,
+// and this is the fastest way to see it.
+if (typeof window !== 'undefined') {
+  // eslint-disable-next-line no-console
+  console.info('[sunmil] API base:', BASE);
+}
+
 export class NetError extends Error {
   readonly code: string;
   readonly status: number;
@@ -24,12 +32,21 @@ export class NetError extends Error {
 }
 
 async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
-  const res = await fetch(BASE + path, {
-    method,
-    credentials: 'include',
-    headers: body === undefined ? undefined : { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(BASE + path, {
+      method,
+      credentials: 'include',
+      headers: body === undefined ? undefined : { 'content-type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    // fetch rejects with a bare TypeError when the request never lands — DNS,
+    // CORS, a wrong API base, the server down. Left unwrapped it escapes every
+    // `instanceof NetError` check callers make, so a build pointing at the
+    // wrong host reports itself as a broken wallet or a farm with no gate.
+    throw new NetError(0, { error: 'network', message: `Cannot reach ${BASE}` });
+  }
 
   const text = await res.text();
   let payload: unknown = null;

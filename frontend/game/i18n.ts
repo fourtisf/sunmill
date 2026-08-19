@@ -204,6 +204,9 @@ const EN: Dict = {
   'login.guest': 'Play as guest (dev)',
   'login.noWallet': 'No wallet found in this browser.',
   'login.failed': 'Could not sign in with that wallet.',
+  'login.rejected': 'You declined the signature. Nothing was sent.',
+  'login.pending': 'Your wallet is already asking — open it and finish there.',
+  'login.disconnected': 'Your wallet is locked or on the wrong network.',
   'login.guestFailed': 'Guest login is disabled.',
   'login.offline': 'Cannot reach the farm server.',
   'invite.title': 'Closed beta',
@@ -237,6 +240,7 @@ const EN: Dict = {
   'notice.hay_deposited': 'Deposited {amount} $HAY',
 
   /* refusals from the server, by error code */
+  'error.network': 'Cannot reach the farm server.',
   'error.unauthorized': 'Sign in to play',
   'error.forbidden': 'Not yours',
   'error.not_found': 'That is gone',
@@ -463,6 +467,9 @@ const ID: Dict = {
   'login.guest': 'Main sebagai tamu (dev)',
   'login.noWallet': 'Tidak ada dompet di peramban ini.',
   'login.failed': 'Tidak bisa masuk dengan dompet itu.',
+  'login.rejected': 'Kamu menolak tanda tangannya. Tidak ada yang dikirim.',
+  'login.pending': 'Dompetmu sudah menunggu — buka dan selesaikan di sana.',
+  'login.disconnected': 'Dompetmu terkunci atau di jaringan yang salah.',
   'login.guestFailed': 'Login tamu dimatikan.',
   'login.offline': 'Tidak bisa menghubungi server.',
   'invite.title': 'Beta tertutup',
@@ -494,6 +501,7 @@ const ID: Dict = {
   'notice.hay_withdraw_failed': 'Penarikan gagal — $HAY dikembalikan',
   'notice.hay_deposited': 'Setoran {amount} $HAY masuk',
 
+  'error.network': 'Tidak bisa menghubungi server peternakan.',
   'error.unauthorized': 'Masuk dulu untuk bermain',
   'error.forbidden': 'Bukan milikmu',
   'error.not_found': 'Sudah tidak ada',

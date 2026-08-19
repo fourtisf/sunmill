@@ -13,7 +13,7 @@ import {
   awayCardOpen, bootUI, buildDock, buildRail, showAwayCard, syncBadges, syncHUD,
   tickPanels, toast,
 } from './ui';
-import { initLang, t } from './i18n';
+import { errorText, initLang, t } from './i18n';
 import { SITE_DOMAIN } from './brand';
 import { demoSnapshot } from './demo';
 import { initAudio, unlockAudio } from './audio';
@@ -101,10 +101,13 @@ async function showLogin() {
   try {
     const gate = await api.invite();
     if (gate.required && !gate.ok) return showInvite();
-  } catch {
-    // Server unreachable — fall through to the login card, which says so when
-    // the player taps. Better than stranding them on a code box that cannot
-    // be checked.
+  } catch (err) {
+    // Falling through quietly here is what made a build pointing at the wrong
+    // API look like a farm with no gate: the check failed, the code box never
+    // appeared, and the login button below it could not have worked either.
+    // Say so instead.
+    const net = err instanceof NetError ? err : null;
+    return renderLogin(net ? errorText(net.code, net.message) : t('login.offline'));
   }
   renderLogin();
 }
@@ -118,6 +121,24 @@ function installDemoScene() {
   apply(demoSnapshot(S.config));
   S.demo = true;   // after apply(), which clears it for real snapshots
   fitCamera();
+}
+
+/**
+ * Name what actually went wrong.
+ *
+ * EIP-1193 providers reject with a numeric `code`; the ones a player can hit
+ * are worth their own sentence. Anything unrecognised keeps the provider's own
+ * message rather than swallowing it — an error nobody can read is an error
+ * nobody can report.
+ */
+function walletError(err: unknown): string {
+  if (err instanceof NetError) return errorText(err.code, err.message);
+  const code = (err as { code?: number | string } | null)?.code;
+  if (code === 4001) return t('login.rejected');
+  if (code === -32002) return t('login.pending');
+  if (code === 4900 || code === 4901) return t('login.disconnected');
+  const message = (err as { message?: string } | null)?.message;
+  return message ? `${t('login.failed')} (${message})` : t('login.failed');
 }
 
 /** The real address, so a player has something to check a fake against. */
@@ -190,7 +211,7 @@ function showInvite() {
   input.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') submit() });
 }
 
-function renderLogin() {
+function renderLogin(problem?: string) {
   const card = showCard('login');
   if (!card) return;
   card.innerHTML =
@@ -209,6 +230,7 @@ function renderLogin() {
     document.getElementById('loginErrTxt').textContent = msg;
     box.style.display = '';
   };
+  if (problem) fail(problem);
 
   document.getElementById('btnWallet').addEventListener('pointerdown', async function () {
     unlockAudio();
@@ -222,7 +244,11 @@ function renderLogin() {
       await api.loginWallet(address, signature);
       await afterLogin();
     } catch (err) {
-      fail(err instanceof NetError ? err.message : t('login.failed'));
+      // A wallet that refused, a popup already waiting, and a server that never
+      // answered are three different problems, and only one of them is the
+      // player's to solve. Saying "could not sign in with that wallet" for all
+      // three is how this stayed unexplained for days.
+      fail(walletError(err));
     }
   });
 
@@ -234,7 +260,7 @@ function renderLogin() {
         await api.loginDev('guest-' + Math.random().toString(36).slice(2, 8));
         await afterLogin();
       } catch (err) {
-        fail(err instanceof NetError ? err.message : t('login.guestFailed'));
+        fail(err instanceof NetError ? errorText(err.code, err.message) : t('login.guestFailed'));
       }
     });
   }
