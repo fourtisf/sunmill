@@ -70,6 +70,10 @@ export const api = {
     request<{ nonce: string; message: string }>('POST', '/api/auth/nonce', { address }),
   loginWallet: (address: string, signature: string) =>
     request<{ ok: true }>('POST', '/api/auth/wallet', { address, signature }),
+  // No key = open a new farm (the response carries the only copy of its key);
+  // a key = come back to the farm that key belongs to.
+  loginGuest: (key?: string) =>
+    request<{ ok: true; created: boolean; key?: string }>('POST', '/api/auth/guest', key ? { key } : {}),
   loginDev: (handle: string) => request<{ ok: true }>('POST', '/api/auth/dev', { handle }),
   logout: () => request<{ ok: true }>('POST', '/api/auth/logout'),
 

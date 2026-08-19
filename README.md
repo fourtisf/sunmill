@@ -177,8 +177,9 @@ behind a per-user Redis token bucket.
 | Route | What it does |
 |---|---|
 | `GET /api/config` | Items, recipes, pens, level gates, `TIME_SCALE`. The client's only source of rules. |
-| `POST /api/auth/nonce` · `POST /api/auth/wallet` | Wallet login: single-use nonce → signature → JWT in an httpOnly cookie. |
-| `POST /api/auth/dev` | Signature-free login for local QA. Refused in production. |
+| `POST /api/auth/guest` | Passcode-only login. No key opens a farm and returns one; a key comes back to it. |
+| `POST /api/auth/nonce` · `POST /api/auth/wallet` | Wallet login: single-use nonce → signature → JWT in an httpOnly cookie. Registered only when `WALLET_LOGIN=true`. |
+| `POST /api/auth/dev` | Signature-free login for local QA and the test suite. Refused in production. |
 | `GET /api/farm` | The resolved snapshot, with server time and the order board. |
 | `POST /api/plant` | Sweep-plant: one call, many tiles, seed cost per tile. |
 | `POST /api/harvest` | Tap a ready tile. Yield lands in the silo if it fits. |
@@ -256,9 +257,29 @@ the letters, so there is no font to load or licence. Raster sizes are generated
 from those vectors by `frontend/scripts/build-brand-assets.mjs`, never
 hand-edited. Usage rules, palette and minimum sizes: `docs/BRAND.md`.
 
+## Signing in
+
+The closed beta runs on the invite code alone: `WALLET_LOGIN` defaults to
+`false`, which does not hide a button — it stops `authRoutes` from registering
+`/api/auth/nonce` and `/api/auth/wallet` at all, so a client that still posts a
+signature gets a 404. The client offers only what `/api/config` reports under
+`features`, so the two cannot drift.
+
+That leaves the code as the way *in* and the **farm key** as the way *back*. The
+code is shared by every tester, so it cannot say who anybody is; on the first
+visit the server mints 24 random bytes, hands them over exactly once, and keeps
+only their SHA-256. The browser stores the key, and pasting it on another device
+brings the same farm back. A lost key is a lost farm — there is no wallet and no
+email behind it — which is why the client shows it once on a card of its own
+rather than tucking it away.
+
+Turning `WALLET_LOGIN=true` back on restores the wallet path beside it; existing
+farms are untouched either way, since `guestKey` is just another nullable column
+on `User`.
+
 ## Chain
 
-Wallet login is **Solana**: the server issues a nonce, the wallet signs it with
+Wallet login (when enabled) is **Solana**: the server issues a nonce, the wallet signs it with
 its ed25519 key, and the server verifies that signature against the base58
 public key — no address recovery, because on ed25519 a signature that verifies
 *is* the proof. Base58 and the verification are implemented in

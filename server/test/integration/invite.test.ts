@@ -73,6 +73,29 @@ describe('closed-beta gate', () => {
     expect(res.json().error).toBe('invite_required');
   });
 
+  maybe('refuses to open a farm with no invite cookie', async () => {
+    // The passcode-only path is the one most players take, so the gate has to
+    // hold here above all: no cookie, no farm.
+    const res = await app.inject({ method: 'POST', url: '/api/auth/guest', payload: {} });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error).toBe('invite_required');
+  });
+
+  maybe('opens a farm once the cookie is held', async () => {
+    // Opening a farm is IP-limited and this Redis is shared with local dev and
+    // with the guest suite, so this test starts from a bucket it owns.
+    await redis.del('sunmil:rl:auth-guest:ip:127.0.0.1').catch(() => undefined);
+    const gate = await app.inject({
+      method: 'POST', url: '/api/invite', payload: { code: 'test-gate-4821' },
+    });
+    const cookie = inviteCookie(gate) as string;
+    const res = await app.inject({
+      method: 'POST', url: '/api/auth/guest', headers: { cookie }, payload: {},
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().created).toBe(true);
+  });
+
   maybe('refuses to mint a wallet nonce with no invite cookie', async () => {
     const res = await app.inject({
       method: 'POST', url: '/api/auth/nonce',

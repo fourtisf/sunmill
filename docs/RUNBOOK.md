@@ -236,9 +236,16 @@ before the economy is settled.
 
 `INVITE_CODE` gates the landing page. It is checked on the server, not in the
 browser: `POST /api/invite` compares the posted code and, on a match, sets a
-signed httpOnly cookie. Every route that can open a session — the wallet nonce,
-the wallet login, the dev login — refuses without that cookie. So deleting the
-overlay in devtools or calling the API directly gets nobody in.
+signed httpOnly cookie. Every route that can open a session — the guest login,
+the wallet nonce, the wallet login, the dev login — refuses without that cookie.
+So deleting the overlay in devtools or calling the API directly gets nobody in.
+
+With `WALLET_LOGIN=false` (the default) the code is the only way in, and the
+farm key the API returns on the first `POST /api/auth/guest` is the only way
+back to a farm. Support consequence worth knowing before a tester asks: we
+store the SHA-256, so a lost key cannot be looked up, reissued or recovered —
+the farm is simply unreachable. Point players at the "Restore a farm" link on
+the login card and at whatever copy of the key they kept.
 
 ```bash
 # turn the gate on

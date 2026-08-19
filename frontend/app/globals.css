@@ -490,6 +490,33 @@ body.pregame #ui > *, body.pregame #joystick{ display:none !important }
   width:100%; font-size:15px; padding:11px 14px;
 }
 .wallet-pick .pick img{ width:20px; height:20px; border-radius:5px; display:block }
+
+/* ---------- farm key (passcode-only play) ---------- */
+/* The key is shown once, so it is set to be read off a screen and typed on
+   another device: monospace, generously tracked, and selectable in one tap. */
+.farmkey{
+  margin:14px 0 2px; padding:13px 12px; border-radius:12px;
+  background:rgba(255,255,255,.72); border:2px dashed rgba(132,81,42,.34);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  /* Tracked enough to read a character at a time, tight enough that the whole
+     key still lands on one line on a 390px phone. */
+  font-size:14px; line-height:1.55; letter-spacing:.04em; color:#5C3618;
+  word-break:break-all; user-select:all; -webkit-user-select:all;
+}
+/* A pasted key is checked character by character too. */
+.field input.key{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:14px; letter-spacing:.04em;
+}
+/* A button that reads as a link — a secondary way out of a card whose primary
+   action is the big one above it. */
+.linkish{
+  display:block; margin:12px auto 0; padding:4px 2px; border:0; background:none;
+  font:inherit; font-size:12.5px; font-weight:600; color:var(--ink-3);
+  text-decoration:underline; text-underline-offset:3px; cursor:pointer;
+}
+.linkish:hover{ color:var(--ink-2) }
+.linkish:focus-visible{ outline:2px solid #B8801E; outline-offset:3px; border-radius:6px }
 .icard .official{
   margin-top:14px; padding-top:12px; border-top:2px solid rgba(132,81,42,.18);
   font-size:11.5px; color:var(--ink-3); letter-spacing:.2px;

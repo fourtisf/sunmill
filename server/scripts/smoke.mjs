@@ -80,6 +80,12 @@ async function main() {
   const SCALE = config.body.timeScale;
   const growWheat = config.body.items.wheat.growSeconds;
 
+  // Whichever login this deployment actually has. Guest is the default and
+  // works in production; the dev route is the local-only fallback.
+  const openFarm = () => (config.body.features.guestLogin
+    ? post('/api/auth/guest', {})
+    : post('/api/auth/dev', { handle: `smoke-${Date.now()}` }));
+
   const anon = await get('/api/farm');
   ok('GET /api/farm rejects an anonymous caller', anon.status === 401);
 
@@ -90,7 +96,7 @@ async function main() {
   ok('GET /api/invite reports the gate', gate.status === 200,
     gate.body.required ? 'code required' : 'no code configured');
   if (gate.body.required) {
-    const blocked = await post('/api/auth/dev', { handle: `smoke-blocked-${Date.now()}` });
+    const blocked = await openFarm();
     ok('no session without the invite code', blocked.status === 403
       && blocked.body.error === 'invite_required');
 
@@ -107,8 +113,9 @@ async function main() {
     ok('the right invite code opens the gate', pass.status === 200 && pass.body.ok);
   }
 
-  const login = await post('/api/auth/dev', { handle: `smoke-${Date.now()}` });
-  ok('POST /api/auth/dev', login.status === 200 && login.body.ok);
+  const login = await openFarm();
+  ok(`POST ${config.body.features.guestLogin ? '/api/auth/guest' : '/api/auth/dev'}`,
+    login.status === 200 && login.body.ok);
 
   step('a fresh farm');
   let snap = (await get('/api/farm')).body;

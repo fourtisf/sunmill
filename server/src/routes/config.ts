@@ -53,9 +53,11 @@ export default async function configRoutes(app: FastifyInstance) {
     market: { refreshSeconds: scaled(MARKET.refreshSec) },
     features: {
       hayOnChain: env.HAY_ONCHAIN_ENABLED && onChainReady(),
-      // The signature-free dev login only exists outside production; the
-      // client asks the server rather than guessing from its own build mode.
-      devLogin: !env.isProd,
+      // Which sign-in the client should offer. The server decides, because the
+      // server is what actually registered (or did not register) the routes —
+      // a button the API would 404 is worse than no button.
+      walletLogin: env.WALLET_LOGIN,
+      guestLogin: env.GUEST_LOGIN,
     },
   }));
 

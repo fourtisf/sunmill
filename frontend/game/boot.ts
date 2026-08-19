@@ -216,18 +216,52 @@ function showInvite() {
   input.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') submit() });
 }
 
+/**
+ * Where the farm key lives on this device. A player who clears site data or
+ * moves browsers needs the key itself — there is no wallet and no email to
+ * recover from — so the card shows it once and offers to restore from it.
+ */
+const KEY_STORE = 'sunmil.farmKey';
+
+function readFarmKey(): string | null {
+  try {
+    const v = window.localStorage.getItem(KEY_STORE);
+    return v && v.trim() ? v.trim() : null;
+  } catch {
+    return null; // private mode, or storage disabled — play still works
+  }
+}
+
+function writeFarmKey(key: string) {
+  try { window.localStorage.setItem(KEY_STORE, key) } catch { /* nothing to do */ }
+}
+
+function forgetFarmKey() {
+  try { window.localStorage.removeItem(KEY_STORE) } catch { /* nothing to do */ }
+}
+
 function renderLogin(problem?: string) {
   const card = showCard('login');
   if (!card) return;
+  const features = cfg().features;
+  const returning = Boolean(readFarmKey());
+
   card.innerHTML =
     '<img class="brandmark" src="/brand/sunmil-logo-stacked.svg" alt="SUNMIL" width="760" height="600">'
     + '<div class="tl">' + t('intro.tagline') + '</div>'
     + '<p>' + t('login.blurb') + '</p>'
     + '<div id="loginErr" class="hint" style="display:none"><span class="d"></span><span id="loginErrTxt"></span></div>'
-    + '<button class="btn gold go" id="btnWallet">' + t('login.wallet') + '</button>'
-    + '<div id="walletPick" class="wallet-pick" style="display:none"></div>'
-    + (cfg().features.devLogin
-      ? '<button class="btn wood go" id="btnGuest" style="margin-top:10px">' + t('login.guest') + '</button>'
+    + (features.guestLogin
+      ? '<button class="btn gold go" id="btnPlay">'
+        + (returning ? t('login.resume') : t('login.play')) + '</button>'
+      : '')
+    + (features.walletLogin
+      ? '<button class="btn ' + (features.guestLogin ? 'wood' : 'gold') + ' go" id="btnWallet"'
+        + (features.guestLogin ? ' style="margin-top:10px"' : '') + '>' + t('login.wallet') + '</button>'
+        + '<div id="walletPick" class="wallet-pick" style="display:none"></div>'
+      : '')
+    + (features.guestLogin && !returning
+      ? '<button type="button" class="linkish" id="btnRestore">' + t('login.haveKey') + '</button>'
       : '')
     + officialLine();
 
@@ -238,6 +272,43 @@ function renderLogin(problem?: string) {
   };
   if (problem) fail(problem);
 
+  /** One place for "the server said no" so every path reads the same. */
+  const loginFailed = (err) => {
+    if (!(err instanceof NetError)) return t('login.failed');
+    if (err.code === 'guest_unknown') { forgetFarmKey(); return t('login.keyGone') }
+    return errorText(err.code, err.message);
+  };
+
+  const play = async (key?: string) => {
+    const res = await api.loginGuest(key);
+    if (res.created && res.key) {
+      writeFarmKey(res.key);
+      // Shown once, and only once — the server keeps a hash, not the key.
+      return showKeyCard(res.key);
+    }
+    if (key) writeFarmKey(key);
+    await afterLogin();
+  };
+
+  const playBtn = document.getElementById('btnPlay');
+  if (playBtn) {
+    playBtn.addEventListener('pointerdown', async function () {
+      unlockAudio();
+      (playBtn as HTMLButtonElement).disabled = true;
+      try {
+        await play(readFarmKey() || undefined);
+      } catch (err) {
+        fail(loginFailed(err));
+        (playBtn as HTMLButtonElement).disabled = false;
+      }
+    });
+  }
+
+  const restore = document.getElementById('btnRestore');
+  if (restore) restore.addEventListener('pointerdown', () => showRestoreCard());
+
+  if (!features.walletLogin) return;
+
   const signInWith = async (choice: WalletChoice) => {
     try {
       const address = await connect(choice);
@@ -246,7 +317,7 @@ function renderLogin(problem?: string) {
       await api.loginWallet(address, signature);
       await afterLogin();
     } catch (err) {
-      // A wallet that refused, a popup already waiting, a wallet with no EVM
+      // A wallet that refused, a popup already waiting, a wallet with no Solana
       // account, and a server that never answered are four different problems,
       // and only some of them are the player's to solve. Saying "could not sign
       // in with that wallet" for all four is how this stayed unexplained.
@@ -278,20 +349,90 @@ function renderLogin(problem?: string) {
     if (wallets.length === 1) return signInWith(wallets[0]);
     showPicker(wallets);
   });
-
-  const guest = document.getElementById('btnGuest');
-  if (guest) {
-    guest.addEventListener('pointerdown', async function () {
-      unlockAudio();
-      try {
-        await api.loginDev('guest-' + Math.random().toString(36).slice(2, 8));
-        await afterLogin();
-      } catch (err) {
-        fail(err instanceof NetError ? errorText(err.code, err.message) : t('login.guestFailed'));
-      }
-    });
-  }
 }
+
+/**
+ * The farm key, said once. Everything about this card assumes the player will
+ * lose it otherwise: it is selectable, copyable, and the way past it is a
+ * button that admits what happens if they did not write it down.
+ */
+function showKeyCard(key: string) {
+  const card = showCard('farmkey');
+  if (!card) return afterLogin();
+  card.innerHTML =
+    '<div class="tl">' + t('key.title') + '</div>'
+    + '<p>' + t('key.blurb') + '</p>'
+    + '<div class="farmkey" id="farmKeyText"></div>'
+    + '<button class="btn wood go" id="btnCopyKey">' + t('key.copy') + '</button>'
+    + '<button class="btn gold go" id="btnKeyGo" style="margin-top:10px">' + t('key.go') + '</button>';
+
+  // textContent, not innerHTML: the key is data, and it renders as typed.
+  document.getElementById('farmKeyText').textContent = key;
+
+  const copy = document.getElementById('btnCopyKey') as HTMLButtonElement;
+  copy.addEventListener('pointerdown', async function () {
+    try {
+      await navigator.clipboard.writeText(key);
+      copy.textContent = t('key.copied');
+    } catch {
+      // No clipboard permission — the key is on screen and selectable anyway.
+      copy.textContent = t('key.copyManually');
+    }
+  });
+
+  document.getElementById('btnKeyGo').addEventListener('pointerdown', async function () {
+    unlockAudio();
+    await afterLogin();
+  });
+}
+
+/** Coming back on a device that has never held this farm's key. */
+function showRestoreCard() {
+  const card = showCard('restore');
+  if (!card) return;
+  card.innerHTML =
+    '<div class="tl">' + t('restore.title') + '</div>'
+    + '<p>' + t('restore.blurb') + '</p>'
+    + '<div class="field" style="text-align:left">'
+    + '<label for="farmKeyIn">' + t('restore.label') + '</label>'
+    + '<input id="farmKeyIn" class="key" type="text" autocomplete="off" spellcheck="false" maxlength="64">'
+    + '</div>'
+    + '<div id="restoreErr" class="form-err" style="display:none"></div>'
+    + '<button class="btn gold go" id="btnRestoreGo">' + t('restore.submit') + '</button>'
+    + '<button type="button" class="linkish" id="btnRestoreBack">' + t('restore.back') + '</button>';
+
+  const input = document.getElementById('farmKeyIn') as HTMLInputElement;
+  const btn = document.getElementById('btnRestoreGo') as HTMLButtonElement;
+  const err = document.getElementById('restoreErr') as HTMLElement;
+  input.focus();
+
+  const submit = async () => {
+    const key = input.value.trim();
+    if (!key) return input.focus();
+    btn.disabled = true;
+    err.style.display = 'none';
+    unlockAudio();
+    try {
+      await api.loginGuest(key);
+      writeFarmKey(key);
+      await afterLogin();
+    } catch (e) {
+      err.textContent = e instanceof NetError && e.code === 'guest_unknown'
+        ? t('restore.wrong')
+        : e instanceof NetError ? errorText(e.code, e.message)
+        : t('login.failed');
+      err.style.display = '';
+      input.select();
+      btn.disabled = false;
+    }
+  };
+
+  btn.addEventListener('click', submit);
+  input.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') submit() });
+  document.getElementById('btnRestoreBack')
+    .addEventListener('pointerdown', () => renderLogin());
+}
+
 
 async function afterLogin() {
   apply(await api.farm());

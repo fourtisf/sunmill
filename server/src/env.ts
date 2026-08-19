@@ -47,6 +47,15 @@ const schema = z.object({
   // load balancer sits in front, and never to `true` — see app.ts.
   TRUST_PROXY: z.string().default('loopback'),
 
+  // How a player gets an identity.
+  //
+  // WALLET_LOGIN off removes the wallet routes entirely — not just the button,
+  // because a hidden button is not a disabled feature. GUEST_LOGIN then carries
+  // the beta on its own: the invite code opens the door and the browser holds a
+  // farm key (see auth/guest.ts) so progress survives the session cookie.
+  WALLET_LOGIN: bool.default('false'),
+  GUEST_LOGIN: bool.default('true'),
+
   // Closed-beta gate. Unset means no gate — anyone can create an account.
   // When set, no session can be opened without posting this code first.
   INVITE_CODE: z.string().min(1).optional().or(z.literal('').transform(() => undefined)),
@@ -93,6 +102,15 @@ if (env.HAY_ONCHAIN_ENABLED) {
     + ' chain while wallet login is on Solana. Payouts would go to addresses no'
     + ' player signs in with. Rewrite it for SPL before turning this on.',
   );
+}
+
+if (!env.WALLET_LOGIN && !env.GUEST_LOGIN) {
+  throw new Error('Invalid environment:\n  - WALLET_LOGIN and GUEST_LOGIN are both off, so nobody could sign in.');
+}
+
+if (env.isProd && env.GUEST_LOGIN && !env.INVITE_CODE) {
+  // eslint-disable-next-line no-console
+  console.warn('[sunmil] GUEST_LOGIN is on with no INVITE_CODE — anyone who finds the site can open a farm.');
 }
 
 if (env.isProd && !env.INVITE_CODE) {

@@ -92,7 +92,7 @@ export interface GameConfig {
   };
   orders: { boardSize: number; ttlSeconds: number };
   market: { refreshSeconds: number };
-  features: { hayOnChain: boolean; devLogin: boolean };
+  features: { hayOnChain: boolean; walletLogin: boolean; guestLogin: boolean };
 }
 
 export interface TileView {

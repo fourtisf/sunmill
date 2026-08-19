@@ -32,6 +32,9 @@ export const errors = {
   disabled: (what: string) => new GameError('disabled', `${what} is not available yet`, 503),
   badRequest: (msg: string, details?: unknown) => new GameError('bad_request', msg, 400, details),
   conflict: (msg: string) => new GameError('conflict', msg, 409),
+  // A farm key that matches nothing. Its own code, so the client can tell a
+  // stale key apart from a refusal and offer to start a new farm.
+  guestUnknown: () => new GameError('guest_unknown', 'No farm matches that key', 401),
   inviteRequired: () => new GameError('invite_required', 'This beta needs an invite code', 403),
   inviteInvalid: () => new GameError('invite_invalid', 'That invite code is not right', 403),
 };

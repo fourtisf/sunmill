@@ -12,6 +12,8 @@ export default defineConfig({
     // Silences the API's request logger — see buildApp().
     // INVITE_CODE is cleared so the suite exercises the game rather than the
     // beta gate; invite.test.ts sets its own code before importing the app.
-    env: { NODE_ENV: 'test', INVITE_CODE: '' },
+    // WALLET_LOGIN is forced on because the suite covers the signature flow;
+    // the deployed default is off, and guest.test.ts covers that side.
+    env: { NODE_ENV: 'test', INVITE_CODE: '', WALLET_LOGIN: 'true' },
   },
 });
