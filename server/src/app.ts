@@ -28,7 +28,19 @@ export async function buildApp(): Promise<FastifyInstance> {
     // Tests build the app in-process and drive it with inject(); request logs
     // there are pure noise that buries the assertions.
     logger: env.NODE_ENV === 'test' ? false : { level: 'info' },
-    trustProxy: true,
+    /**
+     * NOT `true`. With `true`, Fastify trusts every hop in X-Forwarded-For and
+     * reports the left-most entry — which any client can write. nginx appends
+     * the real address rather than replacing the header, so a caller who sends
+     * their own X-Forwarded-For chooses what `req.ip` says they are, and the
+     * rate limiter buckets them under a name they control. That makes the
+     * invite gate's limit decorative: rotate the header, guess forever.
+     *
+     * Trusting only the local proxy makes proxy-addr walk the header from the
+     * right and stop at the first address that is not a trusted hop — the one
+     * nginx observed. Anything the client prepended is ignored.
+     */
+    trustProxy: env.TRUST_PROXY,
     bodyLimit: 64 * 1024,
   });
 

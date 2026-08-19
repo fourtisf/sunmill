@@ -43,6 +43,7 @@ Fill in `.env`. The ones that matter in production:
 | `COOKIE_SECURE` | `true`. The session cookie must never cross plain HTTP. |
 | `COOKIE_DOMAIN` | The apex domain, so `www` and the API host share the cookie. |
 | `CORS_ORIGINS` | Exactly the web origins, comma separated. Not `*`. |
+| `TRUST_PROXY` | `loopback` when nginx runs on this box. **Never `true`.** Fastify with `true` trusts every hop in `X-Forwarded-For` and reports the left-most entry, which the client writes — nginx appends rather than replaces, so a caller could name their own address and get a fresh rate-limit bucket per request. Widen this only for a load balancer on another host, and name that host. |
 | `DATABASE_URL` | Append `?connection_limit=20&pool_timeout=20` to size the Prisma pool for the box. **Quote the whole value** — scripts source this file, and the first unquoted `&` ends the assignment. |
 | `TIME_SCALE` | See README. **Confirm with ALFA before locking.** |
 | `NEXT_PUBLIC_API_URL` | The public origin, e.g. `https://sunmil.fun` — **not** the internal port. Read from this file by `next.config.mjs` and baked into the client bundle at build time, so changing it needs a rebuild, not a restart. Leave it wrong and every browser calls its own machine. |
@@ -249,6 +250,9 @@ Two things worth knowing before you pick a code:
   per 10 minutes, which makes a four-digit code take about a week to exhaust
   from one address — and roughly an hour from a hundred. For a small private
   beta that is fine. Before any public announcement, use something long.
+- That limit only means anything while `TRUST_PROXY` is narrow. Set it to
+  `true` and the bucket key becomes a header the guesser writes, so the limit
+  stops existing — see §2.
 - **A code is shared, not per-player.** The first person through can pass it on.
   If you need to know who let whom in, that is a different feature: per-user
   invite rows with a redeemed-by column, not one shared string.

@@ -42,6 +42,11 @@ const schema = z.object({
   TREASURY_PRIVATE_KEY: z.string().optional(),
   CHAIN_MIN_CONFIRMATIONS: z.coerce.number().int().nonnegative().default(12),
 
+  // Which upstreams may set X-Forwarded-For. 'loopback' is right when nginx
+  // runs on this box, which is the documented deployment; widen it only if a
+  // load balancer sits in front, and never to `true` — see app.ts.
+  TRUST_PROXY: z.string().default('loopback'),
+
   // Closed-beta gate. Unset means no gate — anyone can create an account.
   // When set, no session can be opened without posting this code first.
   INVITE_CODE: z.string().min(1).optional().or(z.literal('').transform(() => undefined)),

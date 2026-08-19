@@ -22,6 +22,18 @@ envval() { sed -n "s/^$1=//p" .env | tail -1 | tr -d "\"'" ; }
 API_PORT="$(envval API_PORT)"; API_PORT="${API_PORT:-4000}"
 WEB_PORT="$(envval WEB_PORT)"; WEB_PORT="${WEB_PORT:-3000}"
 
+# Fail here rather than half way through a migration. Both of these have to be
+# enabled at boot, not just started once — a VPS reboot is what usually takes
+# them away, and P1001 in the middle of a deploy is a confusing way to find out.
+for svc in postgresql redis-server; do
+  systemctl is-enabled --quiet "$svc" 2>/dev/null \
+    || echo "warning: $svc is not enabled at boot — run: systemctl enable $svc" >&2
+done
+command -v pg_isready >/dev/null && { pg_isready -q || {
+  echo "postgres is not accepting connections — run: systemctl start postgresql" >&2; exit 1; }; }
+command -v redis-cli >/dev/null && { [ "$(redis-cli ping 2>/dev/null)" = PONG ] || {
+  echo "redis is not answering — run: systemctl start redis-server" >&2; exit 1; }; }
+
 BRANCH="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 
 echo "==> fetching $BRANCH"

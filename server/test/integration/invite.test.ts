@@ -135,6 +135,27 @@ describe('closed-beta gate', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  maybe('does not let a caller pick their own rate-limit bucket', async () => {
+    // The regression this guards: with Fastify's trustProxy set to `true`, the
+    // left-most X-Forwarded-For entry wins — and that is written by the client.
+    // nginx appends rather than replaces, so a caller who sends their own
+    // header chooses what req.ip reports and gets a fresh bucket per guess.
+    // Trusting only the local hop makes the address nginx observed the one
+    // that counts, so rotating the prefix buys nothing.
+    await redis.del('sunmil:rl:invite:ip:198.51.100.7').catch(() => undefined);
+    let sawLimit = false;
+    for (let i = 0; i < 20; i += 1) {
+      const res = await app.inject({
+        method: 'POST', url: '/api/invite',
+        headers: { 'x-forwarded-for': `203.0.113.${i}, 198.51.100.7` },
+        payload: { code: `bad-${i}` },
+      });
+      if (res.statusCode === 429) { sawLimit = true; break; }
+    }
+    expect(sawLimit).toBe(true);
+    await redis.del('sunmil:rl:invite:ip:198.51.100.7').catch(() => undefined);
+  });
+
   maybe('rate-limits guessing, so a short code cannot just be enumerated', async () => {
     // A fresh bucket for this test alone; the route keys on the caller's IP.
     await redis.del('sunmil:rl:invite:ip:127.0.0.1').catch(() => undefined);
