@@ -213,6 +213,8 @@ const EN: Dict = {
   'login.pending': 'Your wallet is already asking — open it and finish there.',
   'login.disconnected': 'Your wallet is locked or on the wrong network.',
   'login.offline': 'Cannot reach the farm server.',
+  'login.retry': 'Try again',
+  'login.ourFault': 'This is a problem on our side, not on your device.',
   'key.title': 'Save your farm key',
   'key.blurb': 'This key is your farm. It is kept in this browser, and it is the only way back in if you clear your data or play somewhere else. Nobody can send it to you again.',
   'key.copy': 'Copy key',
@@ -257,6 +259,12 @@ const EN: Dict = {
 
   /* refusals from the server, by error code */
   'error.network': 'Cannot reach the farm server.',
+  // A 500 used to reach players as the server's own bare wording. These three
+  // say which of the two it is — the farm server, or the farm server's database —
+  // because "Something went wrong" told a player nothing and an operator less.
+  'error.server_error': 'The farm server hit a problem.',
+  'error.db_unavailable': 'The farm server cannot reach its database.',
+  'error.db_schema': 'The farm server is mid-update. Farms reopen once it finishes.',
   'error.unauthorized': 'Sign in to play',
   'error.guest_unknown': 'No farm matches that key',
   'error.forbidden': 'Not yours',
@@ -493,6 +501,8 @@ const ID: Dict = {
   'login.pending': 'Dompetmu sudah menunggu — buka dan selesaikan di sana.',
   'login.disconnected': 'Dompetmu terkunci atau di jaringan yang salah.',
   'login.offline': 'Tidak bisa menghubungi server.',
+  'login.retry': 'Coba lagi',
+  'login.ourFault': 'Ini masalah di sisi kami, bukan di perangkatmu.',
   'key.title': 'Simpan kunci kebunmu',
   'key.blurb': 'Kunci ini adalah kebunmu. Kunci disimpan di peramban ini, dan hanya inilah jalan masuk kalau kamu menghapus data atau main di perangkat lain. Tidak ada yang bisa mengirimkannya lagi.',
   'key.copy': 'Salin kunci',
@@ -535,6 +545,9 @@ const ID: Dict = {
   'notice.hay_deposited': 'Setoran {amount} $HAY masuk',
 
   'error.network': 'Tidak bisa menghubungi server peternakan.',
+  'error.server_error': 'Server peternakan bermasalah.',
+  'error.db_unavailable': 'Server peternakan tidak bisa menghubungi basis datanya.',
+  'error.db_schema': 'Server peternakan sedang diperbarui. Kebun bisa dibuka lagi setelah selesai.',
   'error.unauthorized': 'Masuk dulu untuk bermain',
   'error.guest_unknown': 'Tidak ada kebun dengan kunci itu',
   'error.forbidden': 'Bukan milikmu',

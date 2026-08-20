@@ -6,6 +6,7 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/db';
 import { redis } from '../lib/redis';
+import { schemaStatus } from '../lib/schema';
 import {
   CROPS, DAILY, EXPAND, FIELD_OPEN, ITEMS, LEVEL_UP_TEXT, MACHINES, MARKET,
   MAX_LEVEL_CURVE, MAX_TILES, ORDERS, PENS, SPEEDUP, TASK_TEMPLATES,
@@ -64,10 +65,16 @@ export default async function configRoutes(app: FastifyInstance) {
   /**
    * Liveness by default — cheap, no dependencies, safe to poll.
    *
-   * `?deep=1` also proves Postgres and Redis are reachable. Worth having its
-   * own switch: the routes a visitor hits first touch neither, so a database
-   * the API cannot reach shows up as a 500 on the first login rather than
-   * anywhere obvious, and this answers that in one request.
+   * `?deep=1` also proves Postgres and Redis are reachable, and that the
+   * database is the shape this build expects. Worth having its own switch: the
+   * routes a visitor hits first touch none of the three, so a broken
+   * dependency shows up as a 500 on the first login rather than anywhere
+   * obvious, and this answers that in one request.
+   *
+   * The schema half is not pedantry. `SELECT 1` passes against a database
+   * whose migrations were never applied, so a deploy that skipped them looks
+   * green here while every login 500s — which is exactly how a live site ends
+   * up with a Start farming button that cannot start a farm.
    */
   app.get('/api/health', async (req, reply) => {
     const time = new Date().toISOString();
@@ -77,8 +84,18 @@ export default async function configRoutes(app: FastifyInstance) {
       prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false),
       redis.ping().then((r) => r === 'PONG').catch(() => false),
     ]);
-    const ok = db && cache;
+    // Only meaningful once the connection is known good; against an
+    // unreachable database it would report a drift it cannot actually see.
+    const schema = db ? await schemaStatus() : { ok: false, pending: [], unknown: 'database unreachable' };
+    const ok = db && cache && schema.ok;
     if (!ok) reply.code(503);
-    return { ok, time, postgres: db, redis: cache };
+    return {
+      ok,
+      time,
+      postgres: db,
+      redis: cache,
+      schema: schema.ok,
+      ...(schema.pending.length ? { pendingMigrations: schema.pending } : {}),
+    };
   });
 }

@@ -5,6 +5,7 @@ import helmet from '@fastify/helmet';
 import { ZodError } from 'zod';
 import { env } from './env';
 import { GameError } from './lib/errors';
+import { databaseError } from './lib/db';
 import { attachSession } from './auth/plugin';
 import adminRoutes from './routes/admin';
 import authRoutes from './routes/auth';
@@ -72,6 +73,18 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
     if ((err as { statusCode?: number }).statusCode === 429) {
       return reply.code(429).send({ error: 'rate_limited', message: 'Slow down a moment' });
+    }
+    // A database that is unreachable, or behind the code, is not an unknown
+    // failure and must not be reported as one: an anonymous 500 on the login
+    // route is indistinguishable from a bug, so it gets investigated as one
+    // while the site stays down. Name it, log the Prisma code, and let the
+    // client offer a retry rather than a dead card.
+    const dbErr = databaseError(err);
+    if (dbErr) {
+      req.log.error({ err, prisma: dbErr.details }, dbErr.code);
+      return reply.code(dbErr.statusCode).send({
+        error: dbErr.code, message: dbErr.message, details: dbErr.details,
+      });
     }
     req.log.error({ err }, 'unhandled error');
     // The id is in the log line beside the stack. Handing it back turns "it

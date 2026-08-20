@@ -327,6 +327,10 @@ body.pregame #ui > *, body.pregame #joystick{ display:none !important }
 .icard .hint{display:flex;gap:8px;align-items:flex-start;text-align:left;margin:9px 0;font-size:12.5px;color:var(--ink);font-weight:400;line-height:1.45}
 .icard .hint b{font-weight:600}
 .icard .hint .d{width:9px;height:9px;border-radius:50%;background:var(--grn-2);flex:0 0 auto;margin-top:5px;box-shadow:0 2px 0 var(--grn-3)}
+/* The same row, carrying bad news. The green dot is a reassurance the intro
+   hints have earned and a failure has not — on the login card it sat beside
+   the word for a dead site. */
+.icard .hint.bad .d{background:#C4402E;box-shadow:0 2px 0 #8E2E20}
 .icard .go{margin-top:16px;width:100%;font-size:17px;padding:13px}
 
 @media (max-width:430px){

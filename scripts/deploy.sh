@@ -98,10 +98,18 @@ pm2 save
 
 echo "==> checking"
 sleep 4
-DEEP="$(curl -fsS "http://127.0.0.1:${API_PORT}/api/health?deep=1" 2>/dev/null || true)"
+# No -f. A dependency that is down answers 503 WITH the reason in the body,
+# and -f throws that body away and exits non-zero — which read as "the api is
+# not answering" and sent whoever ran this looking for the wrong problem.
+DEEP="$(curl -sS "http://127.0.0.1:${API_PORT}/api/health?deep=1" 2>/dev/null || true)"
 case "$DEEP" in
-  *'"ok":true'*) echo "    api ok (postgres and redis reachable)" ;;
+  *'"ok":true'*) echo "    api ok (postgres, redis, and the schema all check out)" ;;
   '') echo "    api is not answering — check: pm2 logs sunmil-api" >&2; exit 1 ;;
+  *'"pendingMigrations"'*)
+     echo "    the database is BEHIND this build: $DEEP" >&2
+     echo "    Every login and every farm write will 500 until the migrations run." >&2
+     echo "    Fix: npm run prisma:deploy --workspace=server" >&2
+     exit 1 ;;
   *) echo "    api is up but a dependency is not: $DEEP" >&2
      echo "    the first login will 500 until this is fixed." >&2; exit 1 ;;
 esac
