@@ -24,7 +24,11 @@ const withdrawBody = z.object({
 }).strict();
 
 const depositBody = z.object({
-  txHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/, 'not a transaction hash'),
+  // A Solana transaction signature: 64 bytes, base58, so 86-88 characters and
+  // no 0, O, I or l. This was an EVM 0x-hash until the chain module moved to
+  // Solana — which would have rejected every real deposit at the boundary,
+  // before it ever reached the code that verifies it.
+  txHash: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{86,88}$/, 'not a transaction signature'),
 }).strict();
 
 function requireFlag(): void {

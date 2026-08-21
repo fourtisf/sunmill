@@ -204,14 +204,19 @@ you reconstruct any balance dispute.
 
 ## 9. Before enabling on-chain $HAY
 
-> **Blocked, not merely unfinished.** `lib/chain.ts` targets an EVM chain while
-> wallet login is on Solana. Enabling the flag today would pay out to 0x
-> addresses no player ever signs in with, using an ERC-20 transfer for a token
-> that is not the token. It needs rewriting for SPL — Solana RPC, a treasury
-> keypair, deposits verified from transaction signatures rather than EVM
-> receipts — before any of the checklist below is worth working through. The
-> ledger, refund, daily-cap and review-hold logic around it is chain-agnostic
-> and stays.
+> **The code is on Solana now.** `lib/chain.ts` used to target an EVM chain
+> while wallet login was on Solana, which would have paid out to 0x addresses
+> no player signs in with. It is an SPL transfer against a Solana RPC, signed
+> by a treasury keypair, with deposits read back out of Solana transactions —
+> and the deposit route accepts a base58 signature rather than a 0x hash,
+> which it did not before, so no real deposit could have got past validation
+> either. The ledger, refund, daily-cap and review-hold logic around it is
+> chain-agnostic and unchanged.
+>
+> **Still blocked on you, not on code.** Nothing on the checklist below has
+> been done, the flag stays `false`, and CLAUDE.md is explicit that no real
+> $HAY moves without your sign-off on emission and sinks. The only sink in the
+> game today is speed-up.
 
 
 Do not set `HAY_ONCHAIN_ENABLED=true` until all of these hold:
@@ -221,7 +226,7 @@ Do not set `HAY_ONCHAIN_ENABLED=true` until all of these hold:
 - [ ] The treasury is funded, and its balance is monitored with an alert.
 - [ ] `HAY_WITHDRAW_DAILY_CAP` and `HAY_WITHDRAW_REVIEW_THRESHOLD` are set to
       agreed values.
-- [ ] `CHAIN_MIN_CONFIRMATIONS` matches Robinhood Chain's finality guidance.
+- [ ] `CHAIN_MIN_CONFIRMATIONS` matches Solana's finality guidance.
 - [ ] Someone owns the `review` queue. The API deducts the game hay and records
       the row but deliberately does not broadcast it; an operator releases or
       rejects it through `/api/admin/withdrawals` (see §10).

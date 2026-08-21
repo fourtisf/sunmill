@@ -29,16 +29,19 @@ const ENV_BEFORE = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
 process.env.HAY_ONCHAIN_ENABLED = 'true';
 process.env.CHAIN_RPC_URL = 'http://127.0.0.1:8545';
 process.env.CHAIN_ID = '1337';
-process.env.HAY_TOKEN_ADDRESS = '0x000000000000000000000000000000000000dEaD';
-process.env.TREASURY_ADDRESS = '0x0000000000000000000000000000000000000BEE';
-process.env.TREASURY_PRIVATE_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+process.env.HAY_TOKEN_ADDRESS = 'HAYmint1111111111111111111111111111111111111';
+process.env.TREASURY_ADDRESS = 'Treasury1111111111111111111111111111111111';
+process.env.TREASURY_PRIVATE_KEY = 'TreasuryKey1111111111111111111111111111111111111111111111111111111111111111111111111111';
 process.env.HAY_WITHDRAW_DAILY_CAP = '50';
 process.env.HAY_WITHDRAW_REVIEW_THRESHOLD = '25';
 
 // A distinct hash per broadcast, as a real chain would give: HayTransfer.txHash
 // is unique, so a stub that repeated itself would collide across runs.
 let broadcast = 0;
-const nextTxHash = () => `0x${(Date.now().toString(16) + (broadcast += 1).toString(16)).padStart(64, 'b')}`;
+// A Solana signature is base58 and 86-88 characters — the shape the deposit
+// route now insists on, so the stub has to produce it too.
+const b58pad = (seed: string, n = 87) => (seed + 'A'.repeat(n)).slice(0, n);
+const nextTxHash = () => b58pad(`Sig${Date.now().toString(36)}${(broadcast += 1).toString(36)}`);
 
 const sendHay = vi.fn(async () => nextTxHash());
 const verifyDeposit = vi.fn(async () => ({ ok: true, amount: '5.00', confirmations: 12 }));
@@ -151,7 +154,7 @@ describe('withdraw', () => {
     const res = await call(p, 'POST', '/api/hay/withdraw', { amount: '10.00' });
     expect(res.statusCode).toBe(200);
     expect(res.json().status).toBe('sent');
-    expect(res.json().txHash).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(res.json().txHash).toMatch(/^[1-9A-HJ-NP-Za-km-z]{86,88}$/);
 
     expect(sendHay).toHaveBeenCalledOnce();
     expect(sendHay.mock.calls[0]).toEqual([p.address, '10.00']);
@@ -268,7 +271,7 @@ describe('withdraw', () => {
 
 describe('deposit', () => {
   // Unique per run: txHash is unique for the lifetime of the database.
-  const hash = (n: number) => `0x${(Date.now().toString(16) + n.toString(16)).padStart(64, 'c')}`;
+  const hash = (n: number) => b58pad(`Dep${Date.now().toString(36)}${n.toString(36)}`);
 
   maybe('credits the verified amount and records the transfer', async () => {
     const p = await walletPlayer('10');
@@ -345,7 +348,12 @@ describe('deposit', () => {
 
   maybe('a malformed transaction hash is rejected at the boundary', async () => {
     const p = await walletPlayer('10');
-    for (const txHash of ['0x123', 'not-a-hash', '', '0x' + 'z'.repeat(64)]) {
+    // Too short, wrong alphabet, empty, EVM-shaped, and base58 of the wrong
+    // length — every one of these has to bounce before the chain is asked.
+    for (const txHash of [
+      'Sig123', 'not a signature!', '', '0x' + 'a'.repeat(64),
+      '0OIl' + 'A'.repeat(83), 'A'.repeat(120),
+    ]) {
       const res = await call(p, 'POST', '/api/hay/deposit/confirm', { txHash });
       expect(res.statusCode).toBe(400);
     }

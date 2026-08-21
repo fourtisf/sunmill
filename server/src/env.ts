@@ -57,8 +57,9 @@ const schema = z.object({
   HAY_ONCHAIN_ENABLED: bool.default('false'),
   HAY_WITHDRAW_DAILY_CAP: z.coerce.number().positive().default(50),
   HAY_WITHDRAW_REVIEW_THRESHOLD: z.coerce.number().positive().default(25),
+  // A Solana RPC endpoint. CHAIN_ID is gone: Solana has clusters, not chain
+  // ids, and the endpoint is what picks one.
   CHAIN_RPC_URL: z.string().optional(),
-  CHAIN_ID: z.string().optional(),
   HAY_TOKEN_ADDRESS: z.string().optional(),
   TREASURY_ADDRESS: z.string().optional(),
   TREASURY_PRIVATE_KEY: z.string().optional(),
@@ -131,10 +132,17 @@ export function onChainReady(): boolean {
 if (env.HAY_ONCHAIN_ENABLED) {
   // eslint-disable-next-line no-console
   console.warn(
-    '[sunmil] HAY_ONCHAIN_ENABLED is set, but lib/chain.ts still targets an EVM'
-    + ' chain while wallet login is on Solana. Payouts would go to addresses no'
-    + ' player signs in with. Rewrite it for SPL before turning this on.',
+    '[sunmil] HAY_ONCHAIN_ENABLED is set — real $HAY will move. CLAUDE.md asks'
+    + ' for ALFA sign-off on emission and sinks before this is ever on in'
+    + ' production. The only sink today is speed-up.',
   );
+  if (!onChainReady()) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[sunmil]   ...but the RPC, mint, treasury address or treasury key are'
+      + ' missing, so the endpoints stay off anyway.',
+    );
+  }
 }
 
 if (!env.WALLET_LOGIN && !env.GUEST_LOGIN) {
