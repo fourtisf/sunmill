@@ -231,6 +231,329 @@ export function buildIsland() {
   }
 }
 
+/* ================= GROUND ================= */
+
+/**
+ * The meadow surface, baked once into a repeating tile.
+ *
+ * Drawn live it was a full-screen gradient, then one long parallelogram per
+ * mown row — sixty to a hundred and twenty of them — then a pattern pass, then
+ * haze. On this box that took the frame rate from 38 to 15, and a phone would
+ * have felt it worse than a container does. None of it is animated, so none of
+ * it belongs in the frame.
+ *
+ * It tiles because the iso lattice contains a rectangle: (2,-2) tiles is
+ * exactly 256px across with no vertical shift, (2,2) is exactly 128px down
+ * with none across, and both keep the mown rows' parity. So a 256x128 bitmap
+ * repeats seamlessly over the plane, and the whole surface becomes one fill.
+ */
+const GTW = 256, GTH = 128;
+let groundPat = null;
+
+function groundPattern(c) {
+  if (groundPat) return groundPat;
+  const tile = document.createElement('canvas');
+  tile.width = GTW; tile.height = GTH;
+  const g = tile.getContext('2d');
+
+  // Cooler and a shade deeper than the farm's own grass, so the fenced field
+  // stays the brightest thing on screen and the eye still goes there first.
+  g.fillStyle = '#427A26';
+  g.fillRect(0, 0, GTW, GTH);
+
+  // The mown rows the farm is mown in, carried outward. Drawn past the tile's
+  // edges; the lattice makes what spills over land on itself.
+  g.globalAlpha = 0.07;
+  for (let y = -6; y <= 6; y++) {
+    g.fillStyle = ((y % 2) + 2) % 2 ? '#CDEE94' : '#224C0C';
+    const p0 = WD.iso(-6, y), p1 = WD.iso(10, y), p2 = WD.iso(10, y + 1), p3 = WD.iso(-6, y + 1);
+    g.beginPath();
+    g.moveTo(p0.x, p0.y); g.lineTo(p1.x, p1.y); g.lineTo(p2.x, p2.y); g.lineTo(p3.x, p3.y);
+    g.closePath(); g.fill();
+  }
+  g.globalAlpha = 1;
+
+  // Blades, and a few soft patches so the field has weather in it rather than
+  // being an even carpet. Wrapped by hand: anything drawn near an edge is
+  // drawn again on the far side, or the repeat shows as a grid.
+  const blade = (x, y, i) => {
+    const h = 2 + A.prng(i * 13) * 3.4;
+    g.strokeStyle = i % 3 ? 'rgba(28,62,12,.34)' : 'rgba(178,222,112,.30)';
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + (A.prng(i * 7) - 0.5) * 2.2, y - h);
+    g.stroke();
+  };
+  g.lineWidth = 1;
+  for (let i = 0; i < 340; i++) {
+    const x = A.prng(i * 37) * GTW, y = A.prng(i * 61) * GTH;
+    for (const ox of [0, -GTW, GTW]) for (const oy of [0, -GTH, GTH]) blade(x + ox, y + oy, i);
+  }
+  for (let i = 0; i < 9; i++) {
+    const x = A.prng(i * 91) * GTW, y = A.prng(i * 43) * GTH;
+    const rx = 16 + A.prng(i * 17) * 24, ry = 9 + A.prng(i * 29) * 13;
+    g.globalAlpha = 0.05;
+    g.fillStyle = i % 2 ? '#1E4A0C' : '#B7E070';
+    for (const ox of [0, -GTW, GTW]) for (const oy of [0, -GTH, GTH]) { A.ell(g, x + ox, y + oy, rx, ry); g.fill() }
+  }
+  groundPat = c.createPattern(tile, 'repeat');
+  return groundPat;
+}
+
+/**
+ * What is out there.
+ *
+ * An empty meadow is a backdrop; a meadow with trees in it is a country the
+ * farm is part of, and that is the whole difference being asked for. A sparse
+ * deterministic scatter on a coarse grid — one candidate cell every few tiles,
+ * most of them empty — so it is the same country on every device and every
+ * reload, and costs a couple of dozen sprites a frame rather than a thousand.
+ *
+ * Cleared well back from the fence: these are drawn before the island, so
+ * anything close enough to overlap it would be swallowed by it.
+ */
+const MEADOW_STEP = 4;
+const MEADOW_CLEAR = 4;
+
+/**
+ * A cap on the grid, not on the sprites drawn.
+ *
+ * The visible tile range grows as the square of zooming out, and the ambient
+ * camera behind the login card goes to 0.34 — which on a desktop is a couple
+ * of thousand candidate cells a frame. Bounding the grid around the view
+ * centre thins the decor at the very edge of an extreme zoom-out, where the
+ * haze has almost taken it anyway, and leaves normal play untouched: at
+ * gameplay zoom the visible range is well inside this.
+ */
+const MEADOW_CELLS = 26;
+
+/**
+ * Meadow decor, baked once per variant.
+ *
+ * Forty trees and bushes redrawn from paths and gradients every frame is most
+ * of what the ground cost: they are the same six pictures over and over. Baked
+ * at 2x and blitted, they cost a bitmap copy each. The sway goes with it,
+ * which is the right trade — swaying scenery a hundred metres out only pulls
+ * the eye away from the farm.
+ *
+ * The box fits the largest of them: a tree reaches 124px above its root and
+ * 52px to its left, and its contact shadow 21px below.
+ */
+const DS_W = 128, DS_H = 168, DS_OX = 64, DS_OY = 140, DS_SCALE = 2;
+const decorSprites = {};
+
+function decorSprite(kind, k) {
+  const key = kind + k;
+  if (decorSprites[key]) return decorSprites[key];
+  const cv = document.createElement('canvas');
+  cv.width = DS_W * DS_SCALE; cv.height = DS_H * DS_SCALE;
+  const g = cv.getContext('2d');
+  g.scale(DS_SCALE, DS_SCALE);
+  g.translate(DS_OX, DS_OY);
+  if (kind === 'tree') WD.DEC.tree(g, 0, k);
+  else if (kind === 'bush') WD.DEC.bush(g, 0, k);
+  else WD.DEC.rock(g, 0, k);
+  decorSprites[key] = cv;
+  return cv;
+}
+
+function meadowSeed(gx, gy) {
+  return (Math.imul(gx, 73856093) ^ Math.imul(gy, 19349663)) | 0;
+}
+
+function boundCells(lo, hi) {
+  const a = Math.floor(lo / MEADOW_STEP), b = Math.ceil(hi / MEADOW_STEP);
+  if (b - a <= MEADOW_CELLS) return [a, b];
+  const mid = Math.round((a + b) / 2), half = MEADOW_CELLS >> 1;
+  return [mid - half, mid + half];
+}
+
+function drawMeadowDecor(c, x0, x1, y0, y1) {
+  const [gxa, gxb] = boundCells(x0, x1);
+  const [gya, gyb] = boundCells(y0, y1);
+  for (let gy = gya; gy <= gyb; gy++) {
+    for (let gx = gxa; gx <= gxb; gx++) {
+      const seed = meadowSeed(gx, gy);
+      const roll = A.prng(seed);
+      if (roll > 0.5) continue;   // most of the field is field
+      const x = gx * MEADOW_STEP + (A.prng(seed + 1) - 0.5) * MEADOW_STEP * 0.85;
+      const y = gy * MEADOW_STEP + (A.prng(seed + 2) - 0.5) * MEADOW_STEP * 0.85;
+      if (x > -MEADOW_CLEAR && x < ISO_W + MEADOW_CLEAR
+        && y > -MEADOW_CLEAR && y < ISO_D + MEADOW_CLEAR) continue;
+      const q = WD.iso(x, y);
+      const k = (seed >>> 3) & 3;
+      const kind = roll < 0.2 ? 'tree' : roll < 0.42 ? 'bush' : 'rock';
+      c.drawImage(decorSprite(kind, k), q.x - DS_OX, q.y - DS_OY, DS_W, DS_H);
+    }
+  }
+}
+
+/**
+ * The land the farm stands on.
+ *
+ * art2.ts draws the farm as an island: a grass top, two soil walls 78px deep,
+ * and a shadow under it. On a sky gradient that reads as a rock floating in
+ * the air, which is not the game this is. The art is the product's identity
+ * and is not to be edited (CLAUDE.md), so nothing here touches it — instead
+ * the world gets a meadow at the depth those soil walls reach, and the island
+ * becomes what it always looked like up close: a raised field standing on
+ * ground that carries on past it.
+ *
+ * Sized from the viewport every frame rather than baked whole. A plane big
+ * enough to cover the most zoomed-out camera is ~7000x3500px, which is 100MB
+ * of canvas at the island's 2x cache scale — and a fixed plane that is merely
+ * large still shows an edge on a screen wider than whoever chose the number.
+ * This covers exactly what can be seen, at any zoom, and has no edge to find.
+ */
+
+/** Mirrors `dep` in art2.ts island() — how far its soil walls reach down. */
+const SOIL_DEPTH = 78;
+
+/** Screen pixel -> tile coordinate on the meadow plane. */
+function screenToGround(sx, sy) {
+  const wx = (sx - cam.x) / cam.z;
+  const wy = (sy - cam.y) / cam.z - SOIL_DEPTH;
+  // iso(x,y) = ((x-y)*TW/2, (x+y)*TH/2), inverted.
+  const sum = 2 * wy / TH, diff = 2 * wx / TW;
+  return { x: (sum + diff) / 2, y: (sum - diff) / 2 };
+}
+
+function drawGround(c, sx0, sy0, sx1, sy1) {
+  // The visible parallelogram in tile space, as a bounding box. iso() is
+  // affine, so the box's image contains the rect — one tile of slack keeps
+  // the seam off the edge.
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const [sx, sy] of [[sx0, sy0], [sx1, sy0], [sx0, sy1], [sx1, sy1]]) {
+    const p = screenToGround(sx, sy);
+    if (p.x < x0) x0 = p.x;
+    if (p.x > x1) x1 = p.x;
+    if (p.y < y0) y0 = p.y;
+    if (p.y > y1) y1 = p.y;
+  }
+  x0 = Math.floor(x0) - 1; x1 = Math.ceil(x1) + 1;
+  y0 = Math.floor(y0) - 1; y1 = Math.ceil(y1) + 1;
+
+  const q = (x, y) => WD.iso(x, y);
+
+  // The rect itself, in the coordinates below — the pattern repeats forever,
+  // so there is nothing to gain by covering the bounding diamond of the view,
+  // which is about four times the pixels.
+  const left = (sx0 - cam.x) / cam.z;
+  const top = (sy0 - cam.y) / cam.z - SOIL_DEPTH;
+  const wide = (sx1 - sx0) / cam.z, tall = (sy1 - sy0) / cam.z;
+
+  c.save();
+  c.translate(0, SOIL_DEPTH);
+
+  // Grass, mown rows and blades, in one fill. No clip: the bounding box
+  // already covers the viewport and the canvas clips what runs past it.
+  c.fillStyle = groundPattern(c);
+  c.fillRect(left, top, wide, tall);
+
+  /**
+   * Contact shadow. Without it the farm reads as a slab resting on a carpet;
+   * the point of all of this is that it sits IN the ground. Offset down-right
+   * because the art lights everything from the upper left.
+   */
+  c.save();
+  c.translate(9, 11);
+  c.fillStyle = '#122C08';
+  c.globalAlpha = 0.075;
+  for (let i = 3; i >= 1; i--) {
+    const sp = i * 0.7;
+    const s0 = q(-sp, -sp), s1 = q(ISO_W + sp, -sp), s2 = q(ISO_W + sp, ISO_D + sp), s3 = q(-sp, ISO_D + sp);
+    c.beginPath();
+    c.moveTo(s0.x, s0.y); c.lineTo(s1.x, s1.y); c.lineTo(s2.x, s2.y); c.lineTo(s3.x, s3.y);
+    c.closePath(); c.fill();
+  }
+  c.restore();
+
+  // Before the haze, so the far ones fade into it the way the ground does.
+  drawMeadowDecor(c, x0, x1, y0, y1);
+
+  // Distance. Flat colour to the edge of the screen reads as a backdrop;
+  // losing the meadow gently reads as land going on.
+  const mid = q(ISO_W / 2, ISO_D / 2);
+  const reach = Math.max(wide, tall) * 0.6;
+  const far = c.createRadialGradient(mid.x, mid.y, reach * 0.16, mid.x, mid.y, reach);
+  far.addColorStop(0, 'rgba(126,168,150,0)');
+  far.addColorStop(0.55, 'rgba(130,170,154,.26)');
+  far.addColorStop(1, 'rgba(138,176,164,.72)');
+  c.fillStyle = far;
+  c.fillRect(left, top, wide, tall);
+  c.restore();
+}
+
+/**
+ * The ground, cached.
+ *
+ * None of it animates and none of it depends on the farm — it changes only
+ * when the camera does, and during play the camera is still most of the time.
+ * Redrawn every frame it cost more than half the frame rate on a software
+ * rasterizer (40fps -> 19), almost all of it the one full-screen pattern fill.
+ * Cached, a still camera pays a single untransformed blit, and a moving one
+ * pays what it always did.
+ */
+/**
+ * Ground past the edges of the screen, so panning re-blits instead of
+ * redrawing. Keyed to the camera it was drawn for; a move within the margin
+ * only shifts where it lands. Without it, a still camera ran at 43fps and a
+ * dragged one at 18, and the login card — whose camera drifts every frame —
+ * never left 13.
+ */
+/**
+ * How much slack to keep. Rebuilds happen every `m` pixels of pan and each one
+ * costs (VW+2m)(VH+2m), so the amortised cost falls as m grows — the optimum
+ * for this viewport is around 500px, which is 60MB of canvas on a retina
+ * screen. Clamped well under that: most of the win, a fraction of the memory,
+ * and on a phone it lands back at the floor where the viewport is small
+ * anyway.
+ */
+function groundMargin() {
+  return Math.max(96, Math.min(160, Math.round(Math.min(VW, VH) * 0.2)));
+}
+
+let groundCv = null;
+let groundAt = null;
+
+function buildGroundLayer() {
+  const m = groundMargin();
+  const w = Math.max(1, Math.round((VW + m * 2) * DPR));
+  const h = Math.max(1, Math.round((VH + m * 2) * DPR));
+  if (!groundCv || groundCv.width !== w || groundCv.height !== h) {
+    groundCv = document.createElement('canvas');
+    groundCv.width = w; groundCv.height = h;
+  }
+  const g = groundCv.getContext('2d');
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  // Sky underneath, so a corner the meadow somehow failed to reach is painted
+  // rather than showing whatever was left in the buffer.
+  const sky = g.createLinearGradient(0, -m, 0, VH + m);
+  sky.addColorStop(0, '#5AA8D8'); sky.addColorStop(.42, '#8FCBE8'); sky.addColorStop(1, '#3E7A2A');
+  g.fillStyle = sky; g.fillRect(0, 0, VW + m * 2, VH + m * 2);
+  // Put the layer's own origin where the viewport's is, so everything below
+  // reads in ordinary screen coordinates and the margin is just slack.
+  g.translate(m, m);
+  g.translate(cam.x, cam.y); g.scale(cam.z, cam.z);
+  drawGround(g, -m, -m, VW + m, VH + m);
+  groundAt = { x: cam.x, y: cam.y, z: cam.z, vw: VW, vh: VH, dpr: DPR, m };
+}
+
+/** Blit position, in device pixels, for the layer as it stands. */
+function groundLayerAt() {
+  if (!groundAt || groundAt.z !== cam.z || groundAt.vw !== VW || groundAt.vh !== VH
+    || groundAt.dpr !== DPR
+    || Math.abs(cam.x - groundAt.x) > groundAt.m
+    || Math.abs(cam.y - groundAt.y) > groundAt.m) {
+    buildGroundLayer();
+  }
+  return {
+    cv: groundCv,
+    x: (cam.x - groundAt.x - groundAt.m) * DPR,
+    y: (cam.y - groundAt.y - groundAt.m) * DPR,
+  };
+}
+
 /* ================= RENDER ================= */
 
 let HIT = [];
@@ -381,11 +704,12 @@ function drawFX() {
 export function render(t) {
   if (!cx2) return;
   const c = cx2;
+  const ground = groundLayerAt();
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.drawImage(ground.cv, ground.x, ground.y);
   c.setTransform(DPR, 0, 0, DPR, 0, 0);
-  const sky = c.createLinearGradient(0, 0, 0, VH);
-  sky.addColorStop(0, '#5AA8D8'); sky.addColorStop(.42, '#8FCBE8'); sky.addColorStop(1, '#3E7A2A');
-  c.fillStyle = sky; c.fillRect(0, 0, VW, VH);
   c.save(); c.translate(cam.x, cam.y); c.scale(cam.z, cam.z);
+
   if (islandCv) c.drawImage(islandCv, -islandOff.x, -islandOff.y, islandCv.width / ISCALE, islandCv.height / ISCALE);
   HIT = [];
   if (ready()) drawEntities(t);
