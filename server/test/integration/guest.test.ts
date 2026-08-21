@@ -9,6 +9,7 @@
  * dump of the users table must not be a pile of working logins.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { dbTest } from './harness';
 import crypto from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 
@@ -50,13 +51,7 @@ afterAll(async () => {
   if (redis) redis.disconnect();
 });
 
-// Runtime, not it.skipIf: skipIf is evaluated at collection time, before
-// beforeAll has had a chance to reach the database. Matches the other files.
-const maybe = (name: string, fn: () => Promise<void>) =>
-  it(name, async () => {
-    if (!reachable) { console.warn(`skipped (no database): ${name}`); return }
-    await fn();
-  }, 30_000);
+const maybe = dbTest(() => reachable);
 
 function sessionCookie(res: { headers: Record<string, unknown> }): string | null {
   const raw = res.headers['set-cookie'];

@@ -8,6 +8,7 @@
  * recipient claims it, and the items belong to neither farm in between.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { dbTest } from './harness';
 import type { FastifyInstance } from 'fastify';
 
 let app: FastifyInstance;
@@ -35,8 +36,7 @@ afterAll(async () => {
   if (redis) redis.disconnect();
 });
 
-const maybe = (name: string, fn: () => Promise<void>) =>
-  it(name, async () => { if (!reachable) return; await fn() }, 30_000);
+const maybe = dbTest(() => reachable);
 
 interface Player { cookie: string; userId: string; farmId: string }
 

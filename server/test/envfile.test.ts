@@ -131,3 +131,26 @@ describe('conflictAdvice', () => {
     expect(lines).toContain(':5432');
   });
 });
+
+describe('FILE_WINS covers the port SUNMIL answers on', () => {
+  // A neighbouring project on this VPS reads API_PORT with the same 4000
+  // default. Left to the environment, whichever starts second binds a port
+  // already taken and dies.
+  it('defends API_PORT against a value the environment is carrying', () => {
+    const parsed = { API_PORT: '4000' };
+    const env: Record<string, string | undefined> = { API_PORT: '4001' };
+
+    expect(envConflicts(parsed, env)).toEqual([
+      { key: 'API_PORT', file: '4000', live: '4001' },
+    ]);
+    expect(applyFileWins(parsed, env)).toEqual(['API_PORT']);
+    expect(env.API_PORT).toBe('4000');
+  });
+
+  it('leaves the environment alone for a port .env does not set', () => {
+    const env: Record<string, string | undefined> = { API_PORT: '4001' };
+    expect(envConflicts({}, env)).toEqual([]);
+    expect(applyFileWins({}, env)).toEqual([]);
+    expect(env.API_PORT).toBe('4001');
+  });
+});

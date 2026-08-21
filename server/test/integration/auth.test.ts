@@ -8,6 +8,7 @@
  * cookie is httpOnly.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { dbTest } from './harness';
 import { createWallet } from './_wallet';
 
 const Wallet = { createRandom: createWallet };
@@ -40,11 +41,7 @@ afterAll(async () => {
   if (redis) redis.disconnect();
 });
 
-const maybe = (name: string, fn: () => Promise<void>) =>
-  it(name, async () => {
-    if (!reachable) { console.warn(`skipped (no database): ${name}`); return }
-    await fn();
-  }, 30_000);
+const maybe = dbTest(() => reachable);
 
 async function getNonce(address: string) {
   const res = await app.inject({ method: 'POST', url: '/api/auth/nonce', payload: { address } });

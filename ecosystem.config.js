@@ -18,6 +18,41 @@ fs.mkdirSync(path.join(root, 'logs'), { recursive: true });
 const envFile = path.join(root, '.env');
 require('dotenv').config({ path: envFile });
 
+// Ports come from THIS repo's .env, not from whatever the environment happens
+// to be holding. PM2's daemon inherits the shell that first started it and
+// hands that on to every app it spawns, and dotenv never overwrites a variable
+// that is already set — so an ambient WEB_PORT outlives every deploy and
+// reload, and the file quietly loses.
+//
+// That matters here because this VPS hosts more than one site, and the
+// neighbour's PM2 config reads these same two names with these same two
+// defaults. Nothing writes the real numbers down; they live only in PM2's
+// memory. Clear that memory — `pm2 delete`, a reboot, a daemon restart — and
+// both projects fall back to 3000, whoever binds second dies with EADDRINUSE,
+// and the site that lost is down until somebody reads the logs.
+//
+// So the file wins, the same way it does for DATABASE_URL — see
+// server/src/lib/envfile.ts for why that rule exists.
+const fileEnv = fs.existsSync(envFile)
+  ? require('dotenv').parse(fs.readFileSync(envFile))
+  : {};
+
+function port(key, fallback) {
+  const chosen = fileEnv[key] || process.env[key] || String(fallback);
+  const live = process.env[key];
+  if (fileEnv[key] && live && live !== fileEnv[key]) {
+    console.warn(
+      `[sunmil] ${key}: .env says ${fileEnv[key]}, this environment says ${live}. ` +
+      'Using .env. That stale value is usually PM2 handing its daemon\'s ' +
+      `environment to every app it starts — unset ${key} to be rid of it.`,
+    );
+  }
+  return Number(chosen);
+}
+
+const API_PORT = port('API_PORT', 4000);
+const WEB_PORT = port('WEB_PORT', 3000);
+
 const shared = {
   instances: 1,
   exec_mode: 'fork',
@@ -38,19 +73,19 @@ module.exports = {
       script: 'dist/index.js',
       out_file: path.join(root, 'logs/api.out.log'),
       error_file: path.join(root, 'logs/api.err.log'),
-      env: { NODE_ENV: 'development', DOTENV_CONFIG_PATH: envFile },
-      env_production: { NODE_ENV: 'production', DOTENV_CONFIG_PATH: envFile },
+      env: { NODE_ENV: 'development', DOTENV_CONFIG_PATH: envFile, API_PORT },
+      env_production: { NODE_ENV: 'production', DOTENV_CONFIG_PATH: envFile, API_PORT },
     },
     {
       ...shared,
       name: 'sunmil-web',
       cwd: path.join(root, 'frontend'),
       script: 'node_modules/next/dist/bin/next',
-      args: 'start -p ' + (process.env.WEB_PORT || 3000),
+      args: 'start -p ' + WEB_PORT,
       out_file: path.join(root, 'logs/web.out.log'),
       error_file: path.join(root, 'logs/web.err.log'),
-      env: { NODE_ENV: 'development' },
-      env_production: { NODE_ENV: 'production' },
+      env: { NODE_ENV: 'development', WEB_PORT, PORT: WEB_PORT },
+      env_production: { NODE_ENV: 'production', WEB_PORT, PORT: WEB_PORT },
     },
   ],
 };

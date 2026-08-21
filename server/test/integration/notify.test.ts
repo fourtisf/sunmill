@@ -8,6 +8,7 @@
  * it should and leaves everyone else alone.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { dbTest } from './harness';
 import type { FastifyInstance } from 'fastify';
 import webpush from 'web-push';
 
@@ -52,8 +53,7 @@ afterAll(async () => {
   if (redis) redis.disconnect();
 });
 
-const maybe = (name: string, fn: () => Promise<void>) =>
-  it(name, async () => { if (!reachable) return; await fn() }, 30_000);
+const maybe = dbTest(() => reachable);
 
 interface Player { cookie: string; farmId: string; userId: string }
 

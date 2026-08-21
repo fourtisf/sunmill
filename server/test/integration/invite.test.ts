@@ -6,6 +6,7 @@
  * cookie. If any of these ever pass by accident, the gate is decoration.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { dbTest } from './harness';
 import type { FastifyInstance } from 'fastify';
 
 // Must be set before src/env.ts is first evaluated. dotenv does not override
@@ -38,13 +39,7 @@ afterAll(async () => {
   if (redis) redis.disconnect();
 });
 
-// Runtime, not it.skipIf: skipIf is evaluated at collection time, before
-// beforeAll has had a chance to reach the database. Matches the other files.
-const maybe = (name: string, fn: () => Promise<void>) =>
-  it(name, async () => {
-    if (!reachable) { console.warn(`skipped (no database): ${name}`); return }
-    await fn();
-  }, 30_000);
+const maybe = dbTest(() => reachable);
 
 /** Pull the invite cookie out of a set-cookie header. */
 function inviteCookie(res: { headers: Record<string, unknown> }): string | null {

@@ -17,3 +17,6 @@ npm-debug.log*
 .DS_Store
 .idea/
 .vscode/
+
+# redis writes this where it was started, which during a test run is the repo root.
+dump.rdb

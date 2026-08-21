@@ -16,6 +16,7 @@
  * credited twice, and the route catches it.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { dbTest } from './harness';
 import { createWallet } from './_wallet';
 import type { FastifyInstance } from 'fastify';
 
@@ -101,11 +102,7 @@ beforeEach(() => {
   verifyDeposit.mockImplementation(async () => ({ ok: true, amount: '5.00', confirmations: 12 }));
 });
 
-const maybe = (name: string, fn: () => Promise<void>) =>
-  it(name, async () => {
-    if (!reachable) { console.warn(`skipped (no database): ${name}`); return }
-    await fn();
-  }, 30_000);
+const maybe = dbTest(() => reachable);
 
 interface Player { cookie: string; farmId: string; userId: string; address: string }
 

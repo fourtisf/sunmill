@@ -20,8 +20,17 @@
  * server this process talks to, and the conflict goes in the log either way.
  */
 
-/** The values that decide which servers this process talks to. */
-export const FILE_WINS = ['DATABASE_URL', 'REDIS_URL'] as const;
+/**
+ * The values that decide which servers this process talks to, and which port
+ * it answers on.
+ *
+ * API_PORT is in the list for the same reason, from the other direction: this
+ * VPS hosts more than one site, and a neighbouring project's PM2 config reads
+ * a variable of exactly this name with exactly this default. Left to the
+ * environment, whichever of them starts second binds a port already taken and
+ * dies — so the port SUNMIL answers on is decided by SUNMIL's own .env.
+ */
+export const FILE_WINS = ['DATABASE_URL', 'REDIS_URL', 'API_PORT'] as const;
 
 /** A connection URL with its credentials removed, safe to put in a log line. */
 export function maskUrl(value: string): string {

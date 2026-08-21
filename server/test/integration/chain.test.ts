@@ -13,6 +13,7 @@
  * exactly equivalent to waiting, and it keeps the suite fast.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { dbTest } from './harness';
 import type { FastifyInstance } from 'fastify';
 import { MACHINES, PENS, scaled } from '../../src/config/gamedata';
 
@@ -42,11 +43,7 @@ afterAll(async () => {
   if (redis) redis.disconnect();
 });
 
-const maybe = (name: string, fn: () => Promise<void>) =>
-  it(name, async () => {
-    if (!reachable) { console.warn(`skipped (no database): ${name}`); return }
-    await fn();
-  }, 60_000);
+const maybe = dbTest(() => reachable, 60_000);
 
 let seq = 0;
 

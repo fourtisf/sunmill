@@ -7,10 +7,12 @@
  * These cover the properties that unit tests cannot: that a tampered order row
  * cannot pay out more than config allows, that a poisoned market cache cannot
  * invent a price, that the same order cannot be delivered twice, and that
- * level-ups settle their own rewards. The whole file skips when the database
- * is unreachable, so `npm test` stays green without infrastructure.
+ * level-ups settle their own rewards. The whole file reports itself skipped
+ * when the database is unreachable — see ./harness.ts, which is where the
+ * difference between skipped and passed is enforced.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { dbTest } from './harness';
 import type { FastifyInstance } from 'fastify';
 
 const dbUrl = process.env.DATABASE_URL;
@@ -41,11 +43,7 @@ afterAll(async () => {
   if (redis) redis.disconnect();
 });
 
-const maybe = (name: string, fn: () => Promise<void>) =>
-  it(name, async () => {
-    if (!reachable) { console.warn(`skipped (no database): ${name}`); return }
-    await fn();
-  }, 30_000);
+const maybe = dbTest(() => reachable);
 
 let seq = 0;
 async function login(): Promise<string> {

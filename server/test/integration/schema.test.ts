@@ -11,6 +11,7 @@
  * thinks. The row is put back whatever happens.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { dbTest } from './harness';
 import type { FastifyInstance } from 'fastify';
 
 const dbUrl = process.env.DATABASE_URL;
@@ -44,11 +45,7 @@ afterAll(async () => {
   if (redis) redis.disconnect();
 });
 
-const maybe = (name: string, fn: () => Promise<void>) =>
-  it(name, async () => {
-    if (!reachable) return;
-    await fn();
-  });
+const maybe = dbTest(() => reachable);
 
 /** Take a migration row out, run the body, and always put it back. */
 async function withMigrationMissing(name: string, body: () => Promise<void>) {
