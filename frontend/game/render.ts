@@ -201,6 +201,48 @@ export function buildIsland() {
   islandOff.x = -(l - pad); islandOff.y = -(t - pad);
   g.translate(islandOff.x, islandOff.y);
   WD.island(g, ISO_W, ISO_D, 0);
+
+  /**
+   * Flatten it.
+   *
+   * island() draws a plateau: a drop shadow, two soil walls 78px deep and a
+   * grass lip along their tops. That is what made the farm read as a block
+   * sitting on the world rather than part of it. The art is not to be edited
+   * (CLAUDE.md), so this does not edit it — it takes what island() drew and
+   * keeps only the top face, cutting away everything outside the diamond.
+   *
+   * Before the fence goes on, because the fence rails stand above the two
+   * back edges and are outside the diamond too.
+   */
+  g.save();
+  g.globalCompositeOperation = 'destination-out';
+  const f1 = WD.iso(0, 0), f2 = WD.iso(ISO_W, 0), f3 = WD.iso(ISO_W, ISO_D), f4 = WD.iso(0, ISO_D);
+  g.beginPath();
+  g.rect(l - pad, t - pad, (r - l) + pad * 2, (b - t) + pad * 2);
+  g.moveTo(f1.x, f1.y); g.lineTo(f2.x, f2.y); g.lineTo(f3.x, f3.y); g.lineTo(f4.x, f4.y);
+  g.closePath();
+  g.fill('evenodd');
+
+  /**
+   * And feather what is left.
+   *
+   * A hard cut leaves the field as a bright diamond laid on top of the
+   * meadow — flat, but pasted on, and the two front edges have no fence to
+   * explain the line. Erasing a soft rim lets the field's grass fall away into
+   * the meadow's instead. The mown rows already line up across it, because
+   * both surfaces are now rows of whole `y` from the same iso().
+   */
+  g.lineJoin = 'round';
+  for (const [w, a] of [[26, 0.1], [17, 0.16], [9, 0.22], [4, 0.3]]) {
+    g.globalAlpha = a;
+    g.lineWidth = w;
+    g.beginPath();
+    g.moveTo(f1.x, f1.y); g.lineTo(f2.x, f2.y); g.lineTo(f3.x, f3.y); g.lineTo(f4.x, f4.y);
+    g.closePath();
+    g.stroke();
+  }
+  g.restore();
+
   /* fences along the two outer edges */
   g.save(); g.translate(WD.iso(0, 0).x, WD.iso(0, 0).y); WD.DEC.fence(g, ISO_W, 0); g.restore();
   g.save(); g.translate(WD.iso(0, 0).x, WD.iso(0, 0).y); WD.DEC.fence(g, ISO_D, 1); g.restore();
@@ -406,13 +448,16 @@ function drawMeadowDecor(c, x0, x1, y0, y1) {
  * This covers exactly what can be seen, at any zoom, and has no edge to find.
  */
 
-/** Mirrors `dep` in art2.ts island() — how far its soil walls reach down. */
-const SOIL_DEPTH = 78;
-
-/** Screen pixel -> tile coordinate on the meadow plane. */
+/**
+ * Screen pixel -> tile coordinate.
+ *
+ * The meadow shares the field's plane exactly, so the two are one surface and
+ * the mown rows run straight through the fence instead of stopping at it —
+ * both are rows of whole `y`, drawn from the same iso().
+ */
 function screenToGround(sx, sy) {
   const wx = (sx - cam.x) / cam.z;
-  const wy = (sy - cam.y) / cam.z - SOIL_DEPTH;
+  const wy = (sy - cam.y) / cam.z;
   // iso(x,y) = ((x-y)*TW/2, (x+y)*TH/2), inverted.
   const sum = 2 * wy / TH, diff = 2 * wx / TW;
   return { x: (sum + diff) / 2, y: (sum - diff) / 2 };
@@ -439,34 +484,15 @@ function drawGround(c, sx0, sy0, sx1, sy1) {
   // so there is nothing to gain by covering the bounding diamond of the view,
   // which is about four times the pixels.
   const left = (sx0 - cam.x) / cam.z;
-  const top = (sy0 - cam.y) / cam.z - SOIL_DEPTH;
+  const top = (sy0 - cam.y) / cam.z;
   const wide = (sx1 - sx0) / cam.z, tall = (sy1 - sy0) / cam.z;
 
   c.save();
-  c.translate(0, SOIL_DEPTH);
 
   // Grass, mown rows and blades, in one fill. No clip: the bounding box
   // already covers the viewport and the canvas clips what runs past it.
   c.fillStyle = groundPattern(c);
   c.fillRect(left, top, wide, tall);
-
-  /**
-   * Contact shadow. Without it the farm reads as a slab resting on a carpet;
-   * the point of all of this is that it sits IN the ground. Offset down-right
-   * because the art lights everything from the upper left.
-   */
-  c.save();
-  c.translate(9, 11);
-  c.fillStyle = '#122C08';
-  c.globalAlpha = 0.075;
-  for (let i = 3; i >= 1; i--) {
-    const sp = i * 0.7;
-    const s0 = q(-sp, -sp), s1 = q(ISO_W + sp, -sp), s2 = q(ISO_W + sp, ISO_D + sp), s3 = q(-sp, ISO_D + sp);
-    c.beginPath();
-    c.moveTo(s0.x, s0.y); c.lineTo(s1.x, s1.y); c.lineTo(s2.x, s2.y); c.lineTo(s3.x, s3.y);
-    c.closePath(); c.fill();
-  }
-  c.restore();
 
   // Before the haze, so the far ones fade into it the way the ground does.
   drawMeadowDecor(c, x0, x1, y0, y1);
