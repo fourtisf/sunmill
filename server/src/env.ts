@@ -5,8 +5,24 @@
 import path from 'node:path';
 import dotenv from 'dotenv';
 import { z } from 'zod';
+import { envOverrides, overrideAdvice } from './lib/envfile';
 
-dotenv.config({ path: process.env.DOTENV_CONFIG_PATH ?? path.resolve(__dirname, '../../.env') });
+const loaded = dotenv.config({
+  path: process.env.DOTENV_CONFIG_PATH ?? path.resolve(__dirname, '../../.env'),
+});
+
+/**
+ * Say it before anything reads a connection string.
+ *
+ * These two are the ones that break everything while looking fine: the file
+ * names one server, the process holds another, and the only symptom is a
+ * database the API "cannot reach" at an address nobody ever typed. Loud, and
+ * not fatal — an override is a legitimate thing to do deliberately.
+ */
+for (const override of envOverrides(loaded.parsed, process.env, ['DATABASE_URL', 'REDIS_URL'])) {
+  // eslint-disable-next-line no-console
+  for (const line of overrideAdvice(override)) console.warn(line);
+}
 
 const bool = z
   .string()
