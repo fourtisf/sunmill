@@ -8,7 +8,7 @@
  * nothing anywhere said which address was actually dialled.
  */
 import { describe, expect, it } from 'vitest';
-import { envOverrides, maskUrl, overrideAdvice } from '../src/lib/envfile';
+import { applyFileWins, conflictAdvice, envConflicts, maskUrl } from '../src/lib/envfile';
 
 describe('maskUrl', () => {
   it('keeps the part that identifies the server and drops the part that does not', () => {
@@ -37,7 +37,7 @@ describe('maskUrl', () => {
   });
 });
 
-describe('envOverrides', () => {
+describe('envConflicts', () => {
   const KEYS = ['DATABASE_URL', 'REDIS_URL'] as const;
   const file = {
     DATABASE_URL: 'postgresql://sunmil:pw@127.0.0.1:5433/sunmil?schema=public',
@@ -45,7 +45,7 @@ describe('envOverrides', () => {
   };
 
   it('catches the port that was corrected in the file and not in the process', () => {
-    const found = envOverrides(file, {
+    const found = envConflicts(file, {
       ...file,
       DATABASE_URL: 'postgresql://sunmil:pw@127.0.0.1:5432/sunmil?schema=public',
     }, KEYS);
@@ -58,30 +58,76 @@ describe('envOverrides', () => {
   });
 
   it('says nothing when they agree', () => {
-    expect(envOverrides(file, { ...file }, KEYS)).toEqual([]);
+    expect(envConflicts(file, { ...file }, KEYS)).toEqual([]);
   });
 
   it('says nothing about a key the file does not set', () => {
     // Configuration that only exists in the environment is not a conflict.
-    expect(envOverrides({ REDIS_URL: file.REDIS_URL }, file, KEYS)).toEqual([]);
-    expect(envOverrides(undefined, file, KEYS)).toEqual([]);
+    expect(envConflicts({ REDIS_URL: file.REDIS_URL }, file, KEYS)).toEqual([]);
+    expect(envConflicts(undefined, file, KEYS)).toEqual([]);
   });
 
   it('ignores a key the process does not have', () => {
-    expect(envOverrides(file, { REDIS_URL: file.REDIS_URL }, KEYS)).toEqual([]);
+    expect(envConflicts(file, { REDIS_URL: file.REDIS_URL }, KEYS)).toEqual([]);
   });
 });
 
-describe('overrideAdvice', () => {
-  it('names both addresses and the one command that clears it', () => {
-    const lines = overrideAdvice({
-      key: 'DATABASE_URL',
-      file: 'postgresql://***@127.0.0.1:5433/sunmil',
-      live: 'postgresql://***@127.0.0.1:5432/sunmil',
-    }).join('\n');
-    expect(lines).toContain(':5433');
+describe('applyFileWins', () => {
+  const file = {
+    DATABASE_URL: 'postgresql://sunmil:pw@127.0.0.1:5433/sunmil?schema=public',
+    REDIS_URL: 'redis://127.0.0.1:6379',
+  };
+
+  it('hands the connection back to the file', () => {
+    // The live incident, exactly: .env corrected to 5433, a stale 5432 in the
+    // process environment, and dotenv refusing to overwrite it.
+    const env: Record<string, string | undefined> = {
+      DATABASE_URL: 'postgresql://sunmil:pw@127.0.0.1:5432/sunmil?schema=public',
+      REDIS_URL: file.REDIS_URL,
+    };
+    expect(applyFileWins(file, env)).toEqual(['DATABASE_URL']);
+    expect(env.DATABASE_URL).toBe(file.DATABASE_URL);
+  });
+
+  it('changes nothing when they already agree', () => {
+    const env = { ...file };
+    expect(applyFileWins(file, env)).toEqual([]);
+    expect(env).toEqual(file);
+  });
+
+  it('leaves NODE_ENV to the launcher', () => {
+    // ecosystem.config.js sets NODE_ENV=production; a .env copied from
+    // .env.example still says development. The file must not win there, or a
+    // deploy quietly turns the box into a development one — dev login and all.
+    const env: Record<string, string | undefined> = { NODE_ENV: 'production' };
+    applyFileWins({ ...file, NODE_ENV: 'development' }, env);
+    expect(env.NODE_ENV).toBe('production');
+  });
+
+  it('sets a key the process does not have at all', () => {
+    const env: Record<string, string | undefined> = {};
+    expect(applyFileWins(file, env).sort()).toEqual(['DATABASE_URL', 'REDIS_URL']);
+    expect(env.DATABASE_URL).toBe(file.DATABASE_URL);
+  });
+});
+
+describe('conflictAdvice', () => {
+  const conflict = {
+    key: 'DATABASE_URL',
+    file: 'postgresql://***@127.0.0.1:5433/sunmil',
+    live: 'postgresql://***@127.0.0.1:5432/sunmil',
+  };
+
+  it('says which address is in use when the file wins', () => {
+    const lines = conflictAdvice(conflict, true).join('\n');
+    expect(lines).toContain('using (.env):     postgresql://***@127.0.0.1:5433/sunmil');
+    expect(lines).toContain('ignored (env):    postgresql://***@127.0.0.1:5432/sunmil');
+    expect(lines).toContain('pm2 kill');
+  });
+
+  it('says the file lost when it did', () => {
+    const lines = conflictAdvice(conflict, false).join('\n');
+    expect(lines).toContain('overriding .env');
     expect(lines).toContain(':5432');
-    expect(lines).toContain('unset DATABASE_URL');
-    expect(lines).toContain('pm2 delete sunmil-api');
   });
 });

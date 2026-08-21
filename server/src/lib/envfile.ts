@@ -1,19 +1,27 @@
 /**
- * What this process is actually configured with, and where that came from.
+ * Which configuration wins, and saying so.
  *
- * dotenv never overwrites a variable that is already set. That is the right
- * default — an operator overriding one value for one run should win — but it
- * makes the opposite case invisible: a stale value already in the environment
- * silently beats the file everyone edits.
+ * dotenv never overwrites a variable that is already set. That default is
+ * right when nobody named a file — the environment IS the configuration, and
+ * `DATABASE_URL=... npm start` should work. It is wrong the moment somebody
+ * points at a specific file and says "this is the configuration", which is
+ * exactly what ecosystem.config.js does for the API: it sets
+ * DOTENV_CONFIG_PATH to the repo-root .env.
  *
- * PM2 turns that from an edge case into the normal one. Its daemon inherits
- * the environment of whatever shell first started it and hands that to every
- * app it spawns, so a single `export DATABASE_URL=...` outlives every deploy,
- * every reload and every correction to .env. The file then reads correctly,
- * `pg_isready` answers on the port the file names, and the API quietly dials
- * somewhere else — reporting only that it cannot reach a database, without
- * ever saying which one it tried.
+ * PM2 makes the difference matter. Its daemon inherits the environment of
+ * whatever shell first started it and hands that to every app it spawns, so a
+ * single `export DATABASE_URL=...` outlives every deploy, reload, restart and
+ * correction to .env. The file then reads correctly to everyone who opens it,
+ * pg_isready answers on the port the file names, and the API quietly dials
+ * somewhere else — reporting only that it cannot reach a database, never
+ * which one it tried. That took a live site down for hours.
+ *
+ * So when the path is explicit, the file wins for the values that decide which
+ * server this process talks to, and the conflict goes in the log either way.
  */
+
+/** The values that decide which servers this process talks to. */
+export const FILE_WINS = ['DATABASE_URL', 'REDIS_URL'] as const;
 
 /** A connection URL with its credentials removed, safe to put in a log line. */
 export function maskUrl(value: string): string {
@@ -25,26 +33,26 @@ export function maskUrl(value: string): string {
   return noQuery.replace(/^([a-zA-Z][\w+.-]*:\/\/).*@/, '$1***@');
 }
 
-export interface EnvOverride {
+export interface EnvConflict {
   key: string;
-  /** What .env says, masked. */
+  /** What the file says, masked. */
   file: string;
-  /** What this process actually has, masked. */
+  /** What the process already had, masked. */
   live: string;
 }
 
 /**
- * Which of `keys` the environment is overriding the file on. Only keys the
- * file actually sets can be overridden — a value that exists nowhere else is
- * simply configuration, not a conflict.
+ * Where the file and the environment disagree. Only keys the file actually
+ * sets can conflict — a value that exists nowhere else is configuration, not a
+ * disagreement. Pure: call it before anything is applied.
  */
-export function envOverrides(
+export function envConflicts(
   parsed: Record<string, string> | undefined,
   env: Record<string, string | undefined>,
-  keys: readonly string[],
-): EnvOverride[] {
+  keys: readonly string[] = FILE_WINS,
+): EnvConflict[] {
   if (!parsed) return [];
-  const out: EnvOverride[] = [];
+  const out: EnvConflict[] = [];
   for (const key of keys) {
     const file = parsed[key];
     const live = env[key];
@@ -55,15 +63,47 @@ export function envOverrides(
   return out;
 }
 
+/**
+ * Hand the named keys back to the file. Returns the keys it changed.
+ *
+ * Deliberately narrow: NODE_ENV is not in it, because the launcher is what
+ * decides that — ecosystem.config.js sets NODE_ENV=production and a .env
+ * copied from .env.example still says development. Letting the file win there
+ * would turn a production box into a development one, dev login route and all.
+ */
+export function applyFileWins(
+  parsed: Record<string, string> | undefined,
+  env: Record<string, string | undefined>,
+  keys: readonly string[] = FILE_WINS,
+): string[] {
+  if (!parsed) return [];
+  const changed: string[] = [];
+  for (const key of keys) {
+    const file = parsed[key];
+    if (file != null && env[key] !== file) {
+      env[key] = file;
+      changed.push(key);
+    }
+  }
+  return changed;
+}
+
 /** The lines an operator needs, in the log they already read after a deploy. */
-export function overrideAdvice(o: EnvOverride, app = 'sunmil-api'): string[] {
+export function conflictAdvice(c: EnvConflict, fileWon: boolean): string[] {
+  if (fileWon) {
+    return [
+      `[sunmil] ${c.key}: .env and this process disagreed. The file wins, because`,
+      '[sunmil]   DOTENV_CONFIG_PATH named it — see server/src/lib/envfile.ts.',
+      `[sunmil]   using (.env):     ${c.file}`,
+      `[sunmil]   ignored (env):    ${c.live}`,
+      '[sunmil]   That stale value is usually PM2 handing its daemon\'s environment to',
+      `[sunmil]   every app it starts. To clear it: unset ${c.key} && pm2 kill && pm2 start ecosystem.config.js --env production`,
+    ];
+  }
   return [
-    `[sunmil] ${o.key} from the environment is overriding .env — dotenv does not`,
+    `[sunmil] ${c.key} from the environment is overriding .env — dotenv does not`,
     '[sunmil]   overwrite a variable that is already set, so the file loses.',
-    `[sunmil]   .env says:        ${o.file}`,
-    `[sunmil]   this process has: ${o.live}`,
-    '[sunmil]   PM2 gives its daemon\'s environment to every app it starts, so this',
-    '[sunmil]   survives reload and restart. To clear it:',
-    `[sunmil]     unset ${o.key} && pm2 delete ${app} && pm2 start ecosystem.config.js --env production`,
+    `[sunmil]   .env says:        ${c.file}`,
+    `[sunmil]   this process has: ${c.live}`,
   ];
 }

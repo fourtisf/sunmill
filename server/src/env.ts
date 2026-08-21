@@ -5,23 +5,29 @@
 import path from 'node:path';
 import dotenv from 'dotenv';
 import { z } from 'zod';
-import { envOverrides, overrideAdvice } from './lib/envfile';
-
-const loaded = dotenv.config({
-  path: process.env.DOTENV_CONFIG_PATH ?? path.resolve(__dirname, '../../.env'),
-});
+import { applyFileWins, conflictAdvice, envConflicts } from './lib/envfile';
 
 /**
- * Say it before anything reads a connection string.
+ * An explicit DOTENV_CONFIG_PATH means somebody named this file as the
+ * configuration — ecosystem.config.js does exactly that for the API. Then the
+ * file wins over a value that merely happened to be in the environment, which
+ * is the only way to stop a stale export in whatever shell once started the
+ * PM2 daemon from silently outranking the file every operator edits.
  *
- * These two are the ones that break everything while looking fine: the file
- * names one server, the process holds another, and the only symptom is a
- * database the API "cannot reach" at an address nobody ever typed. Loud, and
- * not fatal — an override is a legitimate thing to do deliberately.
+ * Without an explicit path — local dev, the test suite, a one-off run — the
+ * environment keeps precedence, because there `DATABASE_URL=... npm start` is
+ * somebody deliberately pointing this process somewhere for one run.
  */
-for (const override of envOverrides(loaded.parsed, process.env, ['DATABASE_URL', 'REDIS_URL'])) {
+const namedPath = process.env.DOTENV_CONFIG_PATH;
+const loaded = dotenv.config({ path: namedPath ?? path.resolve(__dirname, '../../.env') });
+
+// Read the disagreement before resolving it, so the log can name both sides.
+const conflicts = envConflicts(loaded.parsed, process.env);
+const fileWins = Boolean(namedPath);
+if (fileWins) applyFileWins(loaded.parsed, process.env);
+for (const conflict of conflicts) {
   // eslint-disable-next-line no-console
-  for (const line of overrideAdvice(override)) console.warn(line);
+  for (const line of conflictAdvice(conflict, fileWins)) console.warn(line);
 }
 
 const bool = z

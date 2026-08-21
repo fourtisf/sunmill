@@ -243,27 +243,42 @@ await page.waitForFunction(() => (window.__HITS||[]).some(h => h.kind === 'anima
 ok('the server marked the hens ready', true);
 const barnBefore = await page.$eval('#barnTxt', e => e.textContent);
 let barnAfter = barnBefore;
-// Hens wander every frame, so read the position and tap in the same beat, and
-// only aim at one that is actually the frontmost thing under the cursor.
-for (let attempt = 0; attempt < 6 && barnAfter === barnBefore; attempt++) {
-  const hen = await page.evaluate(() => {
-    const hits = window.__HITS || [];
-    const topmost = (x, y) => {
-      for (let i = hits.length - 1; i >= 0; i--) {
-        const h = hits[i];
-        if (x >= h.x - h.w/2 && x <= h.x + h.w/2 && y >= h.y - h.h/2 && y <= h.y + h.h/2) return h;
-      }
-      return null;
-    };
-    for (const h of hits) {
-      if (h.kind !== 'animal' || h.ref.state !== 'ready') continue;
-      const top = topmost(h.x, h.y);
-      if (top && top.kind === 'animal' && top.ref.index === h.ref.index) return { x: h.x, y: h.y };
+/**
+ * Hens wander every frame. Reading a hen's position in one round trip and
+ * clicking it in the next is a coin flip on how long the round trip took — it
+ * missed twice while this branch was being written, which is a test reporting
+ * a bug nobody has. Hit-test and tap inside one evaluate() instead: the game
+ * cannot advance a frame in the middle of a synchronous turn, so the hen is
+ * still where it was found. Same events the canvas binds — pointerdown on
+ * #world, pointerup on window — at the coordinates a real tap would carry.
+ */
+const tapReadyHen = () => page.evaluate(() => {
+  const hits = window.__HITS || [];
+  const world = document.getElementById('world');
+  const rect = world.getBoundingClientRect();
+  const topmost = (x, y) => {
+    for (let i = hits.length - 1; i >= 0; i--) {
+      const h = hits[i];
+      if (x >= h.x - h.w/2 && x <= h.x + h.w/2 && y >= h.y - h.h/2 && y <= h.y + h.h/2) return h;
     }
     return null;
-  });
-  if (!hen) { await page.waitForTimeout(400); continue; }
-  await page.mouse.move(hen.x, hen.y); await page.mouse.down(); await page.mouse.up();
+  };
+  for (const h of hits) {
+    if (h.kind !== 'animal' || h.ref.state !== 'ready') continue;
+    const top = topmost(h.x, h.y);
+    if (!top || top.kind !== 'animal' || top.ref.index !== h.ref.index) continue;
+    // __HITS is canvas-relative; a pointer event carries client coordinates.
+    const opts = { bubbles: true, clientX: h.x + rect.left, clientY: h.y + rect.top,
+                   pointerId: 1, isPrimary: true };
+    world.dispatchEvent(new PointerEvent('pointerdown', opts));
+    window.dispatchEvent(new PointerEvent('pointerup', opts));
+    return true;
+  }
+  return false;
+});
+
+for (let attempt = 0; attempt < 8 && barnAfter === barnBefore; attempt++) {
+  if (!(await tapReadyHen())) { await page.waitForTimeout(300); continue; }
   await page.waitForTimeout(1200);
   barnAfter = await page.$eval('#barnTxt', e => e.textContent);
 }
