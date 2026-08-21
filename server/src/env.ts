@@ -84,6 +84,17 @@ const schema = z.object({
   INVITE_COOKIE_NAME: z.string().default('sunmil_invite'),
   INVITE_TTL_SECONDS: z.coerce.number().int().positive().default(60 * 60 * 24 * 30),
 
+  // Web Push. Both keys unset means the game never asks for permission and
+  // never sends — the client reads features.push from /api/config. Generate a
+  // pair with: npx web-push generate-vapid-keys
+  VAPID_PUBLIC_KEY: z.string().optional().or(z.literal('').transform(() => undefined)),
+  VAPID_PRIVATE_KEY: z.string().optional().or(z.literal('').transform(() => undefined)),
+  // Who a push service should contact about this sender. mailto: or https:.
+  VAPID_SUBJECT: z.string().default('mailto:ops@sunmil.fun'),
+  // How often the notifier sweeps for farms whose timer came due. This is not
+  // a game timer — it resolves nothing and mutates no farm state (§4).
+  NOTIFY_SWEEP_SECONDS: z.coerce.number().int().positive().default(60),
+
   // Second factor for the operator routes: a user flagged isAdmin must ALSO
   // present this header. Unset means /api/admin does not exist at all.
   ADMIN_TOKEN: z.string().min(24).optional().or(z.literal('').transform(() => undefined)),
@@ -138,6 +149,14 @@ if (env.isProd && env.GUEST_LOGIN && !env.INVITE_CODE) {
 if (env.isProd && !env.INVITE_CODE) {
   // eslint-disable-next-line no-console
   console.warn('[sunmil] INVITE_CODE unset — the beta gate is open and anyone can create an account.');
+}
+
+if (env.isProd && !(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY)) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[sunmil] no VAPID keys — nothing will ever tell a player their crops are'
+    + ' ready. Generate a pair with: npx web-push generate-vapid-keys',
+  );
 }
 
 if (env.isProd && env.TIME_SCALE < 5) {

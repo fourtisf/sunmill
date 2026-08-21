@@ -13,6 +13,7 @@ import {
   TIME_SCALE, UPGRADES, scaled,
 } from '../config/gamedata';
 import { env, onChainReady } from '../env';
+import { pushEnabled } from '../lib/push';
 import { xpNeed } from '../config/gamedata';
 
 export default async function configRoutes(app: FastifyInstance) {
@@ -59,7 +60,13 @@ export default async function configRoutes(app: FastifyInstance) {
       // a button the API would 404 is worse than no button.
       walletLogin: env.WALLET_LOGIN,
       guestLogin: env.GUEST_LOGIN,
+      // Whether it is worth the client asking for notification permission at
+      // all. A deployment with no VAPID keys never asks.
+      push: pushEnabled(),
     },
+    // The public half of the VAPID pair. Public by definition — a browser
+    // cannot subscribe without it.
+    ...(pushEnabled() ? { vapidPublicKey: env.VAPID_PUBLIC_KEY } : {}),
   }));
 
   /**

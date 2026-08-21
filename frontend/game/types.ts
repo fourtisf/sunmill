@@ -92,7 +92,9 @@ export interface GameConfig {
   };
   orders: { boardSize: number; ttlSeconds: number };
   market: { refreshSeconds: number };
-  features: { hayOnChain: boolean; walletLogin: boolean; guestLogin: boolean };
+  features: { hayOnChain: boolean; walletLogin: boolean; guestLogin: boolean; push: boolean };
+  /** Public half of the VAPID pair; absent when the server cannot send push. */
+  vapidPublicKey?: string;
 }
 
 export interface TileView {

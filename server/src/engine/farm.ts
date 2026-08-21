@@ -38,6 +38,10 @@ export interface FarmRow {
   tasksDay: string | null;
   tutorialStep: number;
   tutorialDone: boolean;
+  // When this farm's soonest timer comes due, and when a push last went out
+  // for it. Written by runAction from the snapshot it already resolved.
+  notifyAt: Date | null;
+  notifiedAt: Date | null;
 }
 
 export interface OrderRow {
@@ -72,17 +76,17 @@ const farmInclude = {
   orders: { orderBy: { createdAt: 'asc' } },
 } as const;
 
-function asJobs(value: unknown): MachineJob[] {
+export function asJobs(value: unknown): MachineJob[] {
   return Array.isArray(value) ? (value as MachineJob[]) : [];
 }
 
-function asDone(value: unknown): Record<string, number> {
+export function asDone(value: unknown): Record<string, number> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? ({ ...(value as Record<string, number>) })
     : {};
 }
 
-function asAnimals(value: unknown): AnimalSlot[] {
+export function asAnimals(value: unknown): AnimalSlot[] {
   return Array.isArray(value) ? (value as AnimalSlot[]) : [];
 }
 
@@ -121,6 +125,8 @@ export async function loadFarm(tx: Tx, userId: string): Promise<FarmState> {
       tasksDay: row.tasksDay,
       tutorialStep: row.tutorialStep,
       tutorialDone: row.tutorialDone,
+      notifyAt: row.notifyAt,
+      notifiedAt: row.notifiedAt,
     },
     playerName: row.user?.name ?? null,
     tiles: row.tiles.map((t) => ({ index: t.index, crop: t.crop, plantedAt: t.plantedAt })),

@@ -18,6 +18,7 @@ import { AWAY_THRESHOLD_SEC, buildAwayReport } from '../engine/awayReport';
 import { dayKey } from '../config/gamedata';
 import type { TaskKind } from '../config/gamedata';
 import { resolveFarm } from '../engine/resolve';
+import { nextDueAt } from '../engine/notify';
 import {
   buildSnapshot, loadFarm, resolveAndPersist, saveInventory,
 } from '../engine/farm';
@@ -93,6 +94,20 @@ export async function runAction(
       { level: state.farm.level, tiles: state.tiles, machines: state.machines, pens: state.pens },
       now,
     );
+
+    /**
+     * Write down when this farm's soonest timer comes due, so the notifier can
+     * find it with an index instead of resolving every farm on a schedule —
+     * which is the thing §4 exists to prevent. The farm was resolved a line
+     * ago either way, so this costs one column, not one query.
+     */
+    const due = nextDueAt(after, now);
+    const dueAt = due ?? null;
+    const dueChanged = (state.farm.notifyAt?.getTime() ?? null) !== (dueAt?.getTime() ?? null);
+    if (dueChanged) {
+      state.farm.notifyAt = dueAt;
+      await tx.farm.update({ where: { id: state.farm.id }, data: { notifyAt: dueAt } });
+    }
 
     return buildSnapshot(state, after, now, {
       ...extras,

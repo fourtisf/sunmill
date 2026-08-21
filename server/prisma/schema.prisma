@@ -26,8 +26,32 @@ model User {
   farm      Farm?
   ledger    Ledger[]
   transfers HayTransfer[]
+  push      PushSubscription[]
 
   @@index([name])
+}
+
+// A browser that agreed to be told when its crops are ready.
+//
+// The endpoint is the identity — one row per browser, not per player, because
+// a player on a phone and a laptop is two subscriptions and expects both to
+// ring. `failures` counts consecutive send errors; a push service that keeps
+// refusing has revoked the subscription and the row is dropped, which is the
+// only cleanup this table gets.
+model PushSubscription {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  endpoint String @unique
+  p256dh   String
+  auth     String
+
+  createdAt  DateTime  @default(now())
+  lastSentAt DateTime?
+  failures   Int       @default(0)
+
+  @@index([userId])
 }
 
 model Farm {
@@ -58,6 +82,13 @@ model Farm {
   tutorialStep Int     @default(0)
   tutorialDone Boolean @default(false)
 
+  // When the soonest unfinished timer on this farm comes due, and when a push
+  // was last sent for it. Written on every action from the snapshot the action
+  // already resolved, so the notifier never has to resolve a farm to find out
+  // whether it owes one — it reads an index (§4 stays lazy).
+  notifyAt   DateTime?
+  notifiedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -67,6 +98,8 @@ model Farm {
   inventory InventoryItem[]
   orders    Order[]
   tasks     DailyTask[]
+
+  @@index([notifyAt])
 }
 
 model Tile {

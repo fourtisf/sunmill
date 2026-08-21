@@ -24,6 +24,7 @@ import { isEnabled as soundOn, setEnabled as setSound, sfx, unlockAudio } from '
 import { refreshGuide, startGuide, stopGuide, taskGuideSteps } from './guide';
 import { SITE_DOMAIN } from './brand';
 import { setJoystickVisible } from './joystick';
+import { enablePush, markPushDeclined, pushOfferText } from './push';
 import { fx, sendFarmer, w2s, FIELD_POS } from './render';
 
 const $ = (s) => document.querySelector(s);
@@ -1015,6 +1016,44 @@ export function awayCardOpen() {
 }
 
 /* ================= TOASTS ================= */
+
+/**
+ * The one time the game asks to be allowed to notify.
+ *
+ * Deliberately not a permission prompt: the browser's own dialog is fired only
+ * after the player says yes to this, because a prompt nobody expected is
+ * answered "block" and there is no second chance. It sits in the toast rail
+ * rather than over the farm, and it does not come back — enablePush() marks
+ * the ask whichever way it goes.
+ */
+let offerOpen = false;
+export function pushOffer() {
+  if (offerOpen) return;
+  offerOpen = true;
+  const text = pushOfferText();
+  const box = el('div', 'toast offer');
+  box.appendChild(el('div', 'offer-t', escape(text.title)));
+  box.appendChild(el('div', 'offer-b', escape(text.body)));
+  const row = el('div', 'offer-row');
+  const yes = el('button', 'btn gold', escape(text.yes));
+  const no = el('button', 'linkish', escape(text.no));
+  row.appendChild(yes); row.appendChild(no);
+  box.appendChild(row);
+  $('#toasts').appendChild(box);
+
+  const close = () => {
+    offerOpen = false;
+    box.classList.add('out');
+    setTimeout(() => box.remove(), 300);
+  };
+  no.addEventListener('pointerdown', function () { markPushDeclined(); close() });
+  yes.addEventListener('pointerdown', async function () {
+    yes.disabled = true;
+    const on = await enablePush();
+    close();
+    if (on) toast(t('push.on'), null, false);
+  });
+}
 
 export function toast(msg, icon, bad) {
   const el2 = el('div', 'toast' + (bad ? ' bad' : ''));

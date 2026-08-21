@@ -117,6 +117,12 @@ export const api = {
   claimTask: (kind: string) => request<Snapshot>('POST', '/api/tasks/claim', { kind }),
   claimStreak: () => request<Snapshot>('POST', '/api/daily/claim', {}),
 
+  /* being told the farm is ready */
+  subscribePush: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+    request<{ ok: true }>('POST', '/api/push/subscribe', sub),
+  unsubscribePush: (endpoint: string) =>
+    request<{ ok: true }>('POST', '/api/push/unsubscribe', { endpoint }),
+
   /* identity */
   setProfile: (body: { name?: string; farmName?: string }) =>
     request<Snapshot>('POST', '/api/profile', body),

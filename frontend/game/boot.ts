@@ -7,10 +7,10 @@
  * comes back to the foreground, and on a slow safety interval.
  */
 import { api, NetError } from './net';
-import { apply, cfg, S, setConfig, snap } from './state';
+import { apply, cfg, on, S, setConfig, snap } from './state';
 import { getHIT, cam, clampCam, farmerPos, fitCamera, initWorld, onResize, render, setAmbient, step } from './render';
 import {
-  awayCardOpen, bootUI, buildDock, buildRail, showAwayCard, syncBadges, syncHUD,
+  awayCardOpen, bootUI, buildDock, buildRail, pushOffer, showAwayCard, syncBadges, syncHUD,
   tickPanels,
 } from './ui';
 import { errorText, initLang, t } from './i18n';
@@ -24,6 +24,7 @@ import { startGuide, stopGuide, tutorialSteps } from './guide';
 // art2.ts export. Imported for that side effect alone, and imported here so it
 // has run before initWorld() draws anything.
 import './art3';
+import { canAskPush, initPush } from './push';
 
 const IDLE_SYNC_MS = 30_000;
 
@@ -69,6 +70,24 @@ async function sync() {
     if (syncTimer) clearTimeout(syncTimer);
     syncTimer = setTimeout(sync, 5000);
   }
+}
+
+/**
+ * Ask about notifications the first time the player has something to wait for.
+ *
+ * Not on load, and not before there is a farm: a permission prompt with no
+ * context is answered "block", and a browser only asks once. By the time a
+ * crop is in the ground the offer explains itself.
+ */
+function maybeOfferPush() {
+  const s = S.snap;
+  if (!s || S.demo || !canAskPush()) return;
+  if (!s.tutorial?.done) return;          // one thing at a time
+  if (awayCardOpen() || S.openModal) return;
+  const running = s.farm.tiles.some((t) => t.crop && !t.ready)
+    || s.farm.machines.some((m) => m.jobs.length)
+    || s.farm.pens.some((p) => p.animals.some((a) => a.state === 'full'));
+  if (running) pushOffer();
 }
 
 /**
@@ -502,6 +521,9 @@ function showRestoreCard() {
 async function afterLogin() {
   apply(await api.farm());
   entered = true;   // the intro is being dismissed here, not by enterFromIntro
+  // A brand new farm arrives here, not through attempt() — without this the
+  // service worker was only ever registered for players who came back.
+  void initPush();
   lastLevel = snap().farm.level;
   buildDock(); buildRail(); syncHUD(); syncBadges();
   scheduleSync();
@@ -647,6 +669,10 @@ async function attempt() {
       // Slow safety net on top of the timer-driven syncs.
       idleTimer = setInterval(function () { if (!document.hidden && S.snap && !S.demo) sync() }, IDLE_SYNC_MS);
 
+      // Every path that changes the farm ends in apply(), including the ones
+      // that never reschedule — so this is the only hook that sees them all.
+      on('snapshot', maybeOfferPush);
+
       localiseIntro();
       worldReady = true;
     }
@@ -665,6 +691,7 @@ async function attempt() {
     lastLevel = snap().farm.level;
     buildDock(); buildRail(); syncHUD(); syncBadges();
     scheduleSync();
+    void initPush();
     enterFromIntro();
   } finally {
     attempting = false;

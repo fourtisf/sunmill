@@ -4,12 +4,14 @@ import { TIME_SCALE } from './config/gamedata';
 import { prisma } from './lib/db';
 import { redis } from './lib/redis';
 import { pendingMigrationAdvice, schemaStatus } from './lib/schema';
+import { startNotifier, stopNotifier } from './engine/notifier';
 
 async function main() {
   const app = await buildApp();
 
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'shutting down');
+    stopNotifier();
     try {
       await app.close();
       await prisma.$disconnect();
@@ -26,6 +28,11 @@ async function main() {
     { timeScale: TIME_SCALE, hayOnChain: env.HAY_ONCHAIN_ENABLED },
     'sunmil-api ready',
   );
+
+  // Notifications only. It resolves nothing a player would see and writes no
+  // farm state — see engine/notifier.ts on why this is not the background
+  // timer HANDOFF §4 rules out.
+  startNotifier(app.log);
 
   /**
    * Say it here rather than letting a player find it.
