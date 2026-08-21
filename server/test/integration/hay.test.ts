@@ -38,10 +38,21 @@ process.env.HAY_WITHDRAW_REVIEW_THRESHOLD = '25';
 // A distinct hash per broadcast, as a real chain would give: HayTransfer.txHash
 // is unique, so a stub that repeated itself would collide across runs.
 let broadcast = 0;
-// A Solana signature is base58 and 86-88 characters — the shape the deposit
-// route now insists on, so the stub has to produce it too.
-const b58pad = (seed: string, n = 87) => (seed + 'A'.repeat(n)).slice(0, n);
-const nextTxHash = () => b58pad(`Sig${Date.now().toString(36)}${(broadcast += 1).toString(36)}`);
+/**
+ * A Solana signature is base58 and 86-88 characters, which is the shape the
+ * deposit route now insists on — so the stub has to produce it too, and in the
+ * base58 alphabet: base36 of a timestamp happily emits 0, l, o and i, none of
+ * which exist in base58. That is what the first version of this did, and the
+ * route was right to refuse it.
+ */
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+const b58 = (n: number, width = 87) => {
+  let out = '';
+  let v = Math.abs(Math.floor(n));
+  do { out = B58[v % 58] + out; v = Math.floor(v / 58) } while (v > 0);
+  return out.padStart(width, '1');   // '1' is base58 for zero
+};
+const nextTxHash = () => b58(Date.now() * 1000 + (broadcast += 1));
 
 const sendHay = vi.fn(async () => nextTxHash());
 const verifyDeposit = vi.fn(async () => ({ ok: true, amount: '5.00', confirmations: 12 }));
@@ -271,7 +282,7 @@ describe('withdraw', () => {
 
 describe('deposit', () => {
   // Unique per run: txHash is unique for the lifetime of the database.
-  const hash = (n: number) => b58pad(`Dep${Date.now().toString(36)}${n.toString(36)}`);
+  const hash = (n: number) => b58(Date.now() * 1000 + n);
 
   maybe('credits the verified amount and records the transfer', async () => {
     const p = await walletPlayer('10');
