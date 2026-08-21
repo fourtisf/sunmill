@@ -20,6 +20,10 @@ import { connect, discoverWallets, signMessage, type WalletChoice } from './wall
 import { initAudio, unlockAudio } from './audio';
 import { mountJoystick, setJoystickVisible, unmountJoystick } from './joystick';
 import { startGuide, stopGuide, tutorialSteps } from './guide';
+// Registers the sprites the prototype never had into the tables art.ts and
+// art2.ts export. Imported for that side effect alone, and imported here so it
+// has run before initWorld() draws anything.
+import './art3';
 
 const IDLE_SYNC_MS = 30_000;
 

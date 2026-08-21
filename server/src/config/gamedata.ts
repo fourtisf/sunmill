@@ -48,6 +48,13 @@ export const ITEMS: Record<string, ItemDef> = {
   carrot: { id: 'carrot', name: 'Carrot', type: 'crop', sell: 16, xp: 3, grow: 34, seed: 8, yield: 2, lvl: 2 },
   soybean: { id: 'soybean', name: 'Soybean', type: 'crop', sell: 24, xp: 4, grow: 50, seed: 13, yield: 2, lvl: 4 },
   sugarcane: { id: 'sugarcane', name: 'Sugarcane', type: 'crop', sell: 38, xp: 5, grow: 70, seed: 21, yield: 2, lvl: 6 },
+  // Levels 9, 13 and 19 had nothing in them. These continue the curve the five
+  // above set: sell roughly x1.5 a step, seed on the same Fibonacci-ish run,
+  // grow time and XP one notch on. Profit per second lands within a few
+  // percent of sugarcane's, so the new crops are a step up, not a shortcut.
+  tomato: { id: 'tomato', name: 'Tomato', type: 'crop', sell: 56, xp: 6, grow: 95, seed: 34, yield: 2, lvl: 9 },
+  strawberry: { id: 'strawberry', name: 'Strawberry', type: 'crop', sell: 80, xp: 7, grow: 125, seed: 55, yield: 2, lvl: 13 },
+  pumpkin: { id: 'pumpkin', name: 'Pumpkin', type: 'crop', sell: 116, xp: 8, grow: 160, seed: 89, yield: 2, lvl: 19 },
 
   egg: { id: 'egg', name: 'Egg', type: 'good', sell: 14, xp: 3 },
   milk: { id: 'milk', name: 'Milk', type: 'good', sell: 22, xp: 4 },
@@ -61,9 +68,14 @@ export const ITEMS: Record<string, ItemDef> = {
   butter: { id: 'butter', name: 'Butter', type: 'good', sell: 78, xp: 9 },
   sugar: { id: 'sugar', name: 'Sugar', type: 'good', sell: 48, xp: 6 },
   syrup: { id: 'syrup', name: 'Syrup', type: 'good', sell: 86, xp: 10 },
+  // What the new crops and the Kitchen are for.
+  cheese: { id: 'cheese', name: 'Cheese', type: 'good', sell: 84, xp: 11 },
+  soup: { id: 'soup', name: 'Garden Soup', type: 'good', sell: 150, xp: 14 },
+  jam: { id: 'jam', name: 'Berry Jam', type: 'good', sell: 330, xp: 20 },
+  pie: { id: 'pie', name: 'Pumpkin Pie', type: 'good', sell: 380, xp: 26 },
 };
 
-export const CROPS = ['wheat', 'corn', 'carrot', 'soybean', 'sugarcane'] as const;
+export const CROPS = ['wheat', 'corn', 'carrot', 'soybean', 'sugarcane', 'tomato', 'strawberry', 'pumpkin'] as const;
 
 export interface RecipeDef {
   out: string;
@@ -106,6 +118,7 @@ export const MACHINES: MachineDef[] = [
     id: 'dairy', name: 'Dairy', art: 'dairy', lvl: 3, x: 2.2, y: 8.6, slots: 3,
     recipes: [
       { out: 'cream', inp: { milk: 2 }, sec: 28, lvl: 3 },
+      { out: 'cheese', inp: { milk: 3 }, sec: 40, lvl: 5 },
       { out: 'butter', inp: { milk: 3, sugar: 1 }, sec: 45, lvl: 6 },
     ],
   },
@@ -114,6 +127,18 @@ export const MACHINES: MachineDef[] = [
     recipes: [
       { out: 'sugar', inp: { sugarcane: 2 }, sec: 30, lvl: 6 },
       { out: 'syrup', inp: { sugarcane: 3, milk: 1 }, sec: 50, lvl: 8 },
+    ],
+  },
+  {
+    // The fifth workshop, and the one that gives levels 10 to 20 something to
+    // open. It sits below the Sugar Mill, keeping the yard's block of
+    // workshops together, clear of the pond at (2.3, 10.9) and of the cow
+    // pasture, which starts at x 5.4.
+    id: 'kitchen', name: 'Kitchen', art: 'kitchen', lvl: 10, x: 4.0, y: 10.9, slots: 3,
+    recipes: [
+      { out: 'soup', inp: { tomato: 2, carrot: 1 }, sec: 60, lvl: 10 },
+      { out: 'jam', inp: { strawberry: 3, sugar: 1 }, sec: 80, lvl: 16 },
+      { out: 'pie', inp: { pumpkin: 2, butter: 1, egg: 1 }, sec: 100, lvl: 20 },
     ],
   },
 ];

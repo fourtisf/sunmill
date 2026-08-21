@@ -114,12 +114,14 @@ async function fastForwardPen(p: Player, pen: string, seconds: number) {
 
 /* ================= EVERY MACHINE, EVERY RECIPE ================= */
 
-describe('crafting through all four machines', () => {
+describe('crafting through every machine', () => {
   for (const machine of MACHINES) {
     for (const recipe of machine.recipes) {
       maybe(`${machine.name}: ${recipe.out} from ${Object.keys(recipe.inp).join(' + ')}`, async () => {
-        // Exactly the ingredients this recipe needs, and nothing else.
-        const p = await player(10, recipe.inp);
+        // At the level this recipe actually asks for, not a number that
+        // happened to clear every recipe the day this was written — a level
+        // 10 player cannot make jam, and the server is right to say so.
+        const p = await player(Math.max(machine.lvl, recipe.lvl), recipe.inp);
 
         const queued = await call(p, 'POST', '/api/machine/queue', {
           machine: machine.id, recipeOut: recipe.out,

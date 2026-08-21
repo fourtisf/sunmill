@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   machineToStored, penToStored, resolveFarm, resolveMachine, resolvePen, resolveTile,
 } from '../src/engine/resolve';
-import { ITEMS, PENS, TIME_SCALE, machineDef, scaled } from '../src/config/gamedata';
+import { ITEMS, MACHINES, PENS, TIME_SCALE, machineDef, scaled } from '../src/config/gamedata';
 import type { RawMachine, RawPen, RawTile } from '../src/engine/types';
 
 const T0 = new Date('2026-01-01T00:00:00.000Z');
@@ -196,8 +196,12 @@ describe('resolveFarm', () => {
   it('returns tiles in index order and fills in missing machines/pens', () => {
     const r = resolveFarm(input, T0);
     expect(r.tiles.map((t) => t.index)).toEqual([0, 1]);
-    expect(r.machines.map((m) => m.machine)).toEqual(['mill', 'bakery', 'dairy', 'sugar']);
-    expect(r.pens.map((p) => p.pen)).toEqual(['chicken', 'cow', 'sheep']);
+    // Against config, not a literal: the point is that every machine and pen
+    // the game defines gets a row whether or not the farm has one yet. A
+    // hardcoded list only asserts how much content existed the day it was
+    // written, and fails the next time any is added.
+    expect(r.machines.map((m) => m.machine)).toEqual(MACHINES.map((m) => m.id));
+    expect(r.pens.map((p) => p.pen)).toEqual(PENS.map((p) => p.id));
     expect(r.dirtyMachines).toEqual([]);
     expect(r.dirtyPens).toEqual([]);
   });
