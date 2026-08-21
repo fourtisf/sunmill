@@ -237,6 +237,35 @@ const knob = await page.evaluate(() => document.querySelector('#joystick .jk-kno
 await page.mouse.up();
 ok('the joystick tracks the thumb', /translate\(4?\d(\.\d+)?px/.test(knob), knob);
 
+// The stick only ever stopped on a pointerup, and a tab switch takes the
+// pointerup with it — so the farmer kept walking, alone, for as long as the
+// tab stayed open. Every way of losing the pointer has to stop him.
+for (const [label, lose] of [
+  ['the tab is hidden', () => page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { get: () => true, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  })],
+  ['the window loses focus', () => page.evaluate(() => window.dispatchEvent(new Event('blur')))],
+]) {
+  await page.mouse.move(jkBox.x + jkBox.width / 2, jkBox.y + jkBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(jkBox.x + jkBox.width / 2 + 40, jkBox.y + jkBox.height / 2 + 12, { steps: 4 });
+  await page.waitForTimeout(400);
+  await lose();
+  await page.waitForTimeout(700);
+  const at = await page.evaluate(() => window.__farmerPos());
+  await page.waitForTimeout(1600);
+  const after = await page.evaluate(() => window.__farmerPos());
+  const drift = Math.hypot(after.x - at.x, after.y - at.y);
+  ok(`the farmer stops when ${label}`, drift < 0.02, 'drifted ' + drift.toFixed(3) + ' tiles');
+  await page.mouse.up().catch(() => {});
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { get: () => false, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForTimeout(300);
+}
+
 // the hens have had their 30s by now — collect by tapping one in the field
 await page.waitForFunction(() => (window.__HITS||[]).some(h => h.kind === 'animal' && h.ref.state === 'ready'),
   null, { timeout: 40000 });

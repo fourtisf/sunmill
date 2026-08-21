@@ -47,6 +47,14 @@ function onDown(e: PointerEvent): void {
   originY = rect.top + rect.height / 2;
   root.classList.add('on');
   stick.active = true;
+  /**
+   * Capture the pointer, so the release is delivered here whatever it happens
+   * over. Without it, a thumb or a cursor that leaves the window between press
+   * and release takes its pointerup with it — and the stick, which only ever
+   * stops on a pointerup, keeps walking the farmer for as long as the tab is
+   * open. That is the farmer wandering off on his own.
+   */
+  try { root.setPointerCapture(e.pointerId) } catch { /* not supported here */ }
   // The stick owns this pointer now — the world must not also read it as a tap.
   e.stopPropagation();
   e.preventDefault();
@@ -82,6 +90,22 @@ function onUp(e: PointerEvent): void {
   reset();
 }
 
+/**
+ * Let go whenever the pointer stream stops being trustworthy.
+ *
+ * Capture covers the release landing somewhere else. These cover the release
+ * never happening at all: the tab going to the background, the window losing
+ * focus to another app, the browser handing the pointer to something else.
+ * Every one of them used to leave the farmer walking.
+ */
+function letGo(): void {
+  if (pointerId != null) reset();
+}
+
+function onHidden(): void {
+  if (document.hidden) letGo();
+}
+
 /** Build the stick into `#joystick` and start listening. */
 export function mountJoystick(): void {
   root = document.getElementById('joystick');
@@ -90,9 +114,12 @@ export function mountJoystick(): void {
   knob = root.querySelector('.jk-knob');
 
   root.addEventListener('pointerdown', onDown);
+  root.addEventListener('lostpointercapture', letGo);
   window.addEventListener('pointermove', onMove, { passive: false });
   window.addEventListener('pointerup', onUp);
   window.addEventListener('pointercancel', onUp);
+  window.addEventListener('blur', letGo);
+  document.addEventListener('visibilitychange', onHidden);
   reset();
 }
 
@@ -100,7 +127,10 @@ export function unmountJoystick(): void {
   window.removeEventListener('pointermove', onMove);
   window.removeEventListener('pointerup', onUp);
   window.removeEventListener('pointercancel', onUp);
+  window.removeEventListener('blur', letGo);
+  document.removeEventListener('visibilitychange', onHidden);
   root?.removeEventListener('pointerdown', onDown);
+  root?.removeEventListener('lostpointercapture', letGo);
   root = null; knob = null;
   reset();
 }

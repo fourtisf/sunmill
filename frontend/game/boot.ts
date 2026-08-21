@@ -8,7 +8,7 @@
  */
 import { api, NetError } from './net';
 import { apply, cfg, S, setConfig, snap } from './state';
-import { getHIT, cam, clampCam, fitCamera, initWorld, onResize, render, setAmbient, step } from './render';
+import { getHIT, cam, clampCam, farmerPos, fitCamera, initWorld, onResize, render, setAmbient, step } from './render';
 import {
   awayCardOpen, bootUI, buildDock, buildRail, showAwayCard, syncBadges, syncHUD,
   tickPanels,
@@ -694,6 +694,8 @@ export async function boot() {
   window.__CAM = cam;
   window.__clampCam = clampCam;
   window.__HITS = [];
+  // Read-only, for browser-smoke.mjs — the same reason __CAM and __HITS are here.
+  window.__farmerPos = farmerPos;
 
   initLang();
   initAudio();
