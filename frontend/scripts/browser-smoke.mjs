@@ -29,9 +29,21 @@ const errs = [];
 page.on('pageerror', e => errs.push(e.message));
 await page.goto(WEB, { waitUntil: 'networkidle' });
 await page.waitForTimeout(2000);
-await (await page.$('#btnGuest')).dispatchEvent('pointerdown');
+const play = await page.$('#btnPlay');
+if (!play) {
+  const card = await page.evaluate(() => document.querySelector('#intro .icard')?.innerText);
+  console.error('FAIL no login button — the card says:\n' + card);
+  process.exit(1);
+}
+await play.dispatchEvent('pointerdown');
 await page.waitForTimeout(2500);
-await page.evaluate(() => document.getElementById('introGo')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
+// A brand new farm is handed its farm key on a card of its own, and that card
+// is what stands between the login and the game. An older build went straight
+// to #introGo, so this walked into the key card and stopped there.
+await page.evaluate(() => {
+  const tap = (id) => document.getElementById(id)?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true}));
+  tap('btnKeyGo'); tap('introGo');
+});
 await page.waitForTimeout(1400);
 // The onboarding guide starts for a new farm; step out of it so this test can
 // drive the UI directly. Its own walkthrough is covered separately.

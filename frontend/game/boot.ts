@@ -98,7 +98,7 @@ function scheduleSync() {
  * mint a session without the invite cookie, so showing the buttons first would
  * only produce a 403 the player has no way to act on.
  */
-async function showLogin() {
+async function showLogin(force = false) {
   try {
     const gate = await api.invite();
     if (gate.required && !gate.ok) return showInvite();
@@ -108,9 +108,9 @@ async function showLogin() {
     // appeared, and the login button below it could not have worked either.
     // Say so instead.
     const net = err instanceof NetError ? err : null;
-    return renderLogin(net ? errorText(net.code, net.message) : t('login.offline'));
+    return renderLogin(net ? errorText(net.code, net.message) : t('login.offline'), force);
   }
-  renderLogin();
+  renderLogin(undefined, force);
 }
 
 /**
@@ -150,7 +150,7 @@ function walletError(err: unknown, wallet = ''): string {
 const officialLine = () =>
   '<div class="official">' + t('brand.official') + ' <b>' + SITE_DOMAIN + '</b></div>';
 
-function showCard(mode: string): HTMLElement | null {
+function showCard(mode: string, force = false): HTMLElement | null {
   const intro = document.getElementById('intro');
   const card = intro.querySelector('.icard') as HTMLElement | null;
   intro.classList.remove('gone');
@@ -159,7 +159,11 @@ function showCard(mode: string): HTMLElement | null {
   // until there is a farm to put in it.
   document.body.classList.add('pregame');
   setAmbient(true);
-  if (!card || card.dataset.mode === mode) return null;
+  // Same mode means the card is already on screen, and re-rendering it would
+  // only steal focus from whatever the player is typing. `force` is for the
+  // one case that has to redraw anyway: retrying after a failure, where the
+  // card must come back without its stale error.
+  if (!card || (card.dataset.mode === mode && !force)) return null;
   card.dataset.mode = mode;
   return card;
 }
@@ -240,8 +244,19 @@ function forgetFarmKey() {
   try { window.localStorage.removeItem(KEY_STORE) } catch { /* nothing to do */ }
 }
 
-function renderLogin(problem?: string) {
-  const card = showCard('login');
+/**
+ * Is this the site's fault rather than the player's?
+ *
+ * A refused signature or a stale farm key is something only the player can
+ * act on; an unreachable server or a 5xx is not, and telling them apart is the
+ * difference between a card that reads as broken and one that reads as busy.
+ */
+function serverFault(err: unknown): boolean {
+  return err instanceof NetError && (err.status === 0 || err.status >= 500);
+}
+
+function renderLogin(problem?: string, force = false) {
+  const card = showCard('login', force);
   if (!card) return;
   const features = cfg().features;
   const returning = Boolean(readFarmKey());
@@ -250,7 +265,10 @@ function renderLogin(problem?: string) {
     '<img class="brandmark" src="/brand/sunmil-logo-stacked.svg" alt="SUNMIL" width="760" height="600">'
     + '<div class="tl">' + t('intro.tagline') + '</div>'
     + '<p>' + t('login.blurb') + '</p>'
-    + '<div id="loginErr" class="hint" style="display:none"><span class="d"></span><span id="loginErrTxt"></span></div>'
+    + '<div id="loginErr" class="hint" style="display:none"><span class="d"></span>'
+    + '<span><span id="loginErrTxt"></span>'
+    + '<span id="loginErrWhose" style="display:none"> ' + t('login.ourFault') + '</span></span></div>'
+    + '<button type="button" class="linkish" id="btnRetry" style="display:none">' + t('login.retry') + '</button>'
     + (features.guestLogin
       ? '<button class="btn gold go" id="btnPlay">'
         + (returning ? t('login.resume') : t('login.play')) + '</button>'
@@ -265,12 +283,32 @@ function renderLogin(problem?: string) {
       : '')
     + officialLine();
 
-  const fail = (msg) => {
+  /**
+   * Show the reason, and — when the reason is ours — say so and offer the one
+   * thing that can help. A player who taps the only button on the page and is
+   * handed a bare sentence has no way to tell a broken site from a broken
+   * device, and no reason to believe a second tap would land any differently.
+   */
+  const fail = (msg, ours = false) => {
     const box = document.getElementById('loginErr');
+    box.classList.add('bad');
     document.getElementById('loginErrTxt').textContent = msg;
+    (document.getElementById('loginErrWhose') as HTMLElement).style.display = ours ? '' : 'none';
     box.style.display = '';
+    const retry = document.getElementById('btnRetry') as HTMLElement;
+    if (retry) retry.style.display = ours ? '' : 'none';
   };
-  if (problem) fail(problem);
+  if (problem) fail(problem, true);
+
+  const retryBtn = document.getElementById('btnRetry');
+  if (retryBtn) {
+    retryBtn.addEventListener('pointerdown', function () {
+      (retryBtn as HTMLButtonElement).disabled = true;
+      // Re-checks the gate as well as the server: whatever was down may have
+      // come back as something that changes which card belongs here.
+      void showLogin(true);
+    });
+  }
 
   /** One place for "the server said no" so every path reads the same. */
   const loginFailed = (err) => {
@@ -298,7 +336,12 @@ function renderLogin(problem?: string) {
       try {
         await play(readFarmKey() || undefined);
       } catch (err) {
-        fail(loginFailed(err));
+        // The gate cookie can lapse between the card being drawn and the
+        // button being tapped. Telling that player "this beta needs an invite
+        // code" while showing them no box to type one into is a dead end, so
+        // send them to the card that can actually take it.
+        if (err instanceof NetError && err.code === 'invite_required') return showInvite();
+        fail(loginFailed(err), serverFault(err));
         (playBtn as HTMLButtonElement).disabled = false;
       }
     });
@@ -321,7 +364,8 @@ function renderLogin(problem?: string) {
       // account, and a server that never answered are four different problems,
       // and only some of them are the player's to solve. Saying "could not sign
       // in with that wallet" for all four is how this stayed unexplained.
-      fail(walletError(err, choice.name));
+      if (err instanceof NetError && err.code === 'invite_required') return showInvite();
+      fail(walletError(err, choice.name), serverFault(err));
     }
   };
 
