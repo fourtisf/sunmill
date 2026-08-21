@@ -4,7 +4,7 @@
  * nothing derived from a secret goes out.
  */
 import { FastifyInstance } from 'fastify';
-import { prisma } from '../lib/db';
+import { dbFault, prisma, prismaCode } from '../lib/db';
 import { redis } from '../lib/redis';
 import { schemaStatus } from '../lib/schema';
 import {
@@ -81,21 +81,44 @@ export default async function configRoutes(app: FastifyInstance) {
     if (!(req.query as { deep?: string })?.deep) return { ok: true, time };
 
     const [db, cache] = await Promise.all([
-      prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false),
-      redis.ping().then((r) => r === 'PONG').catch(() => false),
+      prisma.$queryRaw`SELECT 1`.then(() => ({ ok: true, err: null as unknown }))
+        .catch((err: unknown) => ({ ok: false, err })),
+      redis.ping().then((r) => ({ ok: r === 'PONG', err: null as unknown }))
+        .catch((err: unknown) => ({ ok: false, err })),
     ]);
     // Only meaningful once the connection is known good; against an
     // unreachable database it would report a drift it cannot actually see.
-    const schema = db ? await schemaStatus() : { ok: false, pending: [], unknown: 'database unreachable' };
-    const ok = db && cache && schema.ok;
+    const schema = db.ok ? await schemaStatus() : { ok: false, pending: [], unknown: 'database unreachable' };
+    const ok = db.ok && cache.ok && schema.ok;
     if (!ok) reply.code(503);
+
+    // The whole error goes in the log, where the operator is and the public is
+    // not. Discarding it here is what made `"postgres":false` a dead end: the
+    // endpoint that exists to answer "why is the site down" knew the reason,
+    // said only that there was one, and sent whoever was on call round after
+    // round of guessing at a box they were already logged into.
+    if (!db.ok) req.log.error({ err: db.err }, 'deep health: postgres is not answering');
+    if (!cache.ok) req.log.error({ err: cache.err }, 'deep health: redis is not answering');
+
     return {
       ok,
       time,
-      postgres: db,
-      redis: cache,
+      postgres: db.ok,
+      redis: cache.ok,
       schema: schema.ok,
+      // The code, and nothing else. /api/health is unauthenticated, and the
+      // messages these carry name hosts, ports and role names. A P-code says
+      // "wrong password" or "no such database" to the one person who can act
+      // on it and nothing at all to anyone else.
+      ...(db.ok ? {} : { postgresCode: prismaCode(db.err) ?? dbFault(db.err) ?? 'unknown' }),
+      ...(cache.ok ? {} : { redisCode: errCode(cache.err) }),
       ...(schema.pending.length ? { pendingMigrations: schema.pending } : {}),
     };
   });
+}
+
+/** ioredis reports ECONNREFUSED, NOAUTH, ETIMEDOUT and the like on `code`. */
+function errCode(err: unknown): string {
+  const code = (err as { code?: unknown } | null)?.code;
+  return typeof code === 'string' ? code : 'unknown';
 }

@@ -10,7 +10,7 @@
  * make it genuinely behind the build, and the health endpoint asked what it
  * thinks. The row is put back whatever happens.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 
 const dbUrl = process.env.DATABASE_URL;
@@ -115,6 +115,35 @@ describe('schema drift', () => {
     const after = await app.inject({ method: 'GET', url: '/api/health?deep=1' });
     expect(after.statusCode).toBe(200);
     expect(after.json().ok).toBe(true);
+  });
+
+  maybe('deep health names the reason Postgres refused, not just that it did', async () => {
+    // The live incident: postgres online, listening, pg_isready green, and the
+    // API still reporting `"postgres":false` with nothing to act on. The
+    // endpoint had the P-code and threw it away.
+    const refused = Object.assign(
+      new Error('Authentication failed against database server'),
+      { code: 'P1000', clientVersion: '5.22.0' },
+    );
+    const spy = vi.spyOn(prisma, '$queryRaw').mockRejectedValueOnce(refused);
+    try {
+      const res = await app.inject({ method: 'GET', url: '/api/health?deep=1' });
+      expect(res.statusCode).toBe(503);
+      const body = res.json();
+      expect(body.ok).toBe(false);
+      expect(body.postgres).toBe(false);
+      expect(body.postgresCode).toBe('P1000');
+      // The code and nothing else — /api/health is unauthenticated, and the
+      // message names the role the credentials were rejected for.
+      expect(JSON.stringify(body)).not.toContain('Authentication failed');
+    } finally {
+      spy.mockRestore();
+    }
+
+    // Green again, and carrying no code, once the database answers.
+    const after = await app.inject({ method: 'GET', url: '/api/health?deep=1' });
+    expect(after.statusCode).toBe(200);
+    expect(after.json()).not.toHaveProperty('postgresCode');
   });
 
   maybe('shallow health stays cheap and says nothing about the schema', async () => {

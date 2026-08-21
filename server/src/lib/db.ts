@@ -44,15 +44,63 @@ const DB_SCHEMA_STALE = new Set([
   'P2022', // the column does not exist
 ]);
 
-function prismaCode(err: unknown): string | null {
+export function prismaCode(err: unknown): string | null {
   if (!err || typeof err !== 'object') return null;
   const { code, clientVersion } = err as { code?: unknown; clientVersion?: unknown };
   if (typeof clientVersion !== 'string') return null;
   return typeof code === 'string' && /^P\d{4}$/.test(code) ? code : null;
 }
 
+/**
+ * Why the client could not start talking to the database at all.
+ *
+ * Prisma throws PrismaClientInitializationError for every one of these, and on
+ * 5.22 that object carries neither `code` nor `errorCode` — both are declared
+ * and left undefined, so a P-code lookup finds nothing and the failure reaches
+ * the error handler as an anonymous 500. Which is the whole bug: the mapping
+ * below was written for exactly this case and could never see it, so a
+ * database the API cannot connect to still answered `Something went wrong` on
+ * the one button the landing page has.
+ *
+ * The reason is only in the message, so it is classified here, once, and what
+ * leaves this module is a short token. The messages name hosts, ports, role
+ * names and database names, and /api/health is unauthenticated.
+ */
+export type DbFault = 'unreachable' | 'auth_failed' | 'no_such_database' | 'tls' | 'unknown';
+
+/** Prisma's class for "could not open a connection", whatever the reason. */
+function isInitError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const { name, clientVersion } = err as { name?: unknown; clientVersion?: unknown };
+  return name === 'PrismaClientInitializationError' && typeof clientVersion === 'string';
+}
+
+export function dbFault(err: unknown): DbFault | null {
+  if (!isInitError(err)) return null;
+  const message = String((err as Error).message ?? '');
+  if (/does not exist on the database server/i.test(message)) return 'no_such_database';
+  if (/authentication failed/i.test(message)) return 'auth_failed';
+  if (/can't reach database server|connection (refused|timed out)|timed out/i.test(message)) return 'unreachable';
+  if (/\btls\b|\bssl\b/i.test(message)) return 'tls';
+  return 'unknown';
+}
+
 /** A GameError for a database failure, or null if this is not one. */
 export function databaseError(err: unknown): GameError | null {
+  // Every initialisation failure is the same answer to a player — the server
+  // cannot reach its database, it is nobody's fault here, and it is not
+  // permanent — so they share one branch and differ only in what the operator
+  // reads.
+  const fault = dbFault(err);
+  if (fault) {
+    return new GameError(
+      'db_unavailable',
+      'The farm server cannot reach its database',
+      503,
+      { prisma: fault },
+    );
+  }
+
   const code = prismaCode(err);
   if (!code) return null;
   if (DB_UNREACHABLE.has(code)) {
