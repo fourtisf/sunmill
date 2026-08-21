@@ -140,6 +140,19 @@ if (env.isProd && !env.INVITE_CODE) {
   console.warn('[sunmil] INVITE_CODE unset — the beta gate is open and anyone can create an account.');
 }
 
+if (env.isProd && env.TIME_SCALE < 5) {
+  // The one setting that decides whether this is a game or a tech demo, and
+  // the one nothing else would ever complain about: at TIME_SCALE=1 wheat
+  // ripens in nine seconds, so there is never anything to come back for. It
+  // shipped that way and nobody noticed for weeks.
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[sunmil] TIME_SCALE=${env.TIME_SCALE} in production — that is the prototype's`
+    + ' demo pace, and every timer in the game is that many times too fast.'
+    + ' HANDOFF §2.1 asks for 20. Set it in .env and restart.',
+  );
+}
+
 if (env.isProd && !env.COOKIE_SECURE) {
   // Loud, but not fatal — someone may be terminating TLS elsewhere.
   // eslint-disable-next-line no-console
