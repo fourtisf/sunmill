@@ -24,6 +24,29 @@ const ok = (l, c, x='') => { if (!c) { console.error('FAIL', l, x); process.exit
 const browser = await chromium.launch(
   process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH, args: ['--no-sandbox'] } : {},
 );
+// ── An API that is not answering must not leave a dead card ───────────────
+// This is the failure the live site actually had: /api/config never landed,
+// boot() gave up with a bare return, and what stayed on screen was the card
+// that ships in the page — a Start farming button with nothing behind it, and
+// a toast that cleared itself two seconds later. Run first, in its own
+// context, so the rest of the sweep still starts from a clean browser.
+{
+  const ctx = await browser.newContext({ viewport: { width: 900, height: 900 } });
+  const p = await ctx.newPage();
+  await p.route('**/api/**', (r) => r.abort());
+  await p.goto(WEB, { waitUntil: 'domcontentloaded' });
+  await p.waitForSelector('#btnBootRetry', { timeout: 15000 });
+  const said = await p.$eval('#bootErrTxt', (e) => e.textContent);
+  ok('an unreachable API says so and offers a way back', Boolean(said && said.trim()), said);
+  ok('the button that could not work is gone', !(await p.$('#introGo')));
+  await p.unroute('**/api/**');
+  await p.evaluate(() => document.getElementById('btnBootRetry')
+    .dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+  await p.waitForSelector('#btnPlay', { timeout: 20000 });
+  ok('Try again reaches the login card once the server is back', true);
+  await ctx.close();
+}
+
 const page = await browser.newPage({ viewport: { width: 900, height: 900 } });
 const errs = [];
 page.on('pageerror', e => errs.push(e.message));
@@ -142,7 +165,11 @@ await page.evaluate(() => document.querySelector('#rb_market').dispatchEvent(new
 await page.waitForTimeout(1200);
 ok('the market panel opened', (await page.$eval('#modal h2', e=>e.textContent)).includes('Roadside Market'));
 await page.evaluate(() => [...document.querySelectorAll('#mBody [data-tab]')].find(b => b.textContent === 'Sell')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
-await page.waitForTimeout(600);
+// Wait for the tab to actually swap rather than for a fixed beat: on a slow
+// run the fixed wait expired first, the Sell button was not there to find, and
+// the click went nowhere — which reads as "selling did not pay out".
+await page.waitForFunction(() => [...document.querySelectorAll('#mBody button')].some(b => b.textContent === 'Sell 1'),
+  null, { timeout: 10000 });
 const coinsBeforeSell = await page.$eval('#coinTxt', e => Number(e.textContent));
 await page.evaluate(() => [...document.querySelectorAll('#mBody button')].find(b => b.textContent === 'Sell 1')?.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true})));
 await page.waitForTimeout(1400);

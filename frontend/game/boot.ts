@@ -11,7 +11,7 @@ import { apply, cfg, S, setConfig, snap } from './state';
 import { getHIT, cam, clampCam, fitCamera, initWorld, onResize, render, setAmbient, step } from './render';
 import {
   awayCardOpen, bootUI, buildDock, buildRail, showAwayCard, syncBadges, syncHUD,
-  tickPanels, toast,
+  tickPanels,
 } from './ui';
 import { errorText, initLang, t } from './i18n';
 import { SITE_DOMAIN } from './brand';
@@ -408,6 +408,7 @@ function showKeyCard(key: string) {
     + '<p>' + t('key.blurb') + '</p>'
     + '<div class="farmkey" id="farmKeyText"></div>'
     + '<button class="btn wood go" id="btnCopyKey">' + t('key.copy') + '</button>'
+    + '<div id="keyErr" class="form-err" style="display:none;margin-top:10px"></div>'
     + '<button class="btn gold go" id="btnKeyGo" style="margin-top:10px">' + t('key.go') + '</button>';
 
   // textContent, not innerHTML: the key is data, and it renders as typed.
@@ -424,9 +425,25 @@ function showKeyCard(key: string) {
     }
   });
 
-  document.getElementById('btnKeyGo').addEventListener('pointerdown', async function () {
+  const go = document.getElementById('btnKeyGo') as HTMLButtonElement;
+  const err = document.getElementById('keyErr') as HTMLElement;
+  go.addEventListener('pointerdown', async function () {
     unlockAudio();
-    await afterLogin();
+    go.disabled = true;
+    err.style.display = 'none';
+    try {
+      await afterLogin();
+    } catch (e) {
+      // The farm exists — the session was minted a moment ago — so this is the
+      // server going out from under a player already through the door.
+      // Unhandled, it left them holding a card that had quietly stopped
+      // working. Said inline rather than on the offline card, because this
+      // card is the only time the key is ever shown and replacing it would
+      // take the key away at the exact moment they were asked to save it.
+      err.textContent = e instanceof NetError ? errorText(e.code, e.message) : t('login.offline');
+      err.style.display = '';
+      go.disabled = false;
+    }
   });
 }
 
@@ -480,6 +497,7 @@ function showRestoreCard() {
 
 async function afterLogin() {
   apply(await api.farm());
+  entered = true;   // the intro is being dismissed here, not by enterFromIntro
   lastLevel = snap().farm.level;
   buildDock(); buildRail(); syncHUD(); syncBadges();
   scheduleSync();
@@ -521,6 +539,157 @@ function dismissIntro() {
 
 /* ================= BOOT ================= */
 
+/**
+ * Startup, made retriable.
+ *
+ * Everything below the config fetch needs game data — buildDecor() reads the
+ * pen list, the dock reads the crop list — so a failed /api/config used to end
+ * boot() with a bare `return`. What that left on screen was the card that
+ * ships in the page: a Start farming button with no listener behind it, on a
+ * canvas that was never initialised, under a toast that cleared itself after
+ * two seconds. The player was then looking at a game that could not be
+ * started and would not say why, and only a reload could change that. A
+ * session that survived a server outage landed in the same place, because the
+ * first farm read failed the same way.
+ *
+ * Both now land on a card that names the reason, says it is not the player's
+ * device, and offers Try again — and keeps retrying on its own with a widening
+ * gap, so a server that comes back finds the player already in the game.
+ */
+const RETRY_MIN_MS = 3_000;
+const RETRY_MAX_MS = 30_000;
+let retryMs = RETRY_MIN_MS;
+let retryTimer = null;
+/** initWorld/bootUI are one-time and need config; this is what guards them. */
+let worldReady = false;
+/** The handover into the game happens once, whichever attempt gets there. */
+let entered = false;
+let attempting = false;
+
+function clearRetry() {
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
+  retryMs = RETRY_MIN_MS;
+}
+
+/** The one card in the game that is never a dead end. */
+function showOffline(err: unknown) {
+  const reason = err instanceof NetError ? errorText(err.code, err.message) : t('login.offline');
+  const card = showCard('offline');
+  if (card) {
+    card.innerHTML =
+      '<img class="brandmark" src="/brand/sunmil-logo-stacked.svg" alt="SUNMIL" width="760" height="600">'
+      + '<div class="tl">' + t('intro.tagline') + '</div>'
+      + '<p>' + t('offline.blurb') + '</p>'
+      + '<div class="hint bad"><span class="d"></span>'
+      + '<span><span id="bootErrTxt"></span> ' + t('login.ourFault') + '</span></div>'
+      + '<button class="btn gold go" id="btnBootRetry">' + t('login.retry') + '</button>'
+      + officialLine();
+    const retry = document.getElementById('btnBootRetry') as HTMLButtonElement;
+    retry.addEventListener('pointerdown', function () {
+      unlockAudio();
+      retry.disabled = true;
+      retry.textContent = t('offline.trying');
+      clearRetry();
+      void attempt();
+    });
+  }
+
+  // A retry that fails again keeps the card and only refreshes the reason —
+  // what comes back may be a different problem, and re-rendering the card
+  // under the player's thumb would take the button away mid-tap.
+  const txt = document.getElementById('bootErrTxt');
+  if (txt) txt.textContent = reason;
+  const retry = document.getElementById('btnBootRetry') as HTMLButtonElement | null;
+  if (retry) { retry.disabled = false; retry.textContent = t('login.retry') }
+
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = setTimeout(function () { retryTimer = null; void attempt() }, retryMs);
+  // Widening, so a long outage is not a request every three seconds from every
+  // tab anyone left open.
+  retryMs = Math.min(RETRY_MAX_MS, Math.round(retryMs * 1.6));
+}
+
+/** One pass at starting: the config, then the world, then the farm. */
+async function attempt() {
+  if (attempting) return;
+  attempting = true;
+  try {
+    if (!S.config) {
+      try {
+        setConfig(await api.config());
+      } catch (err) {
+        return showOffline(err);
+      }
+    }
+
+    if (!worldReady) {
+      initWorld();
+      bootUI();
+      mountJoystick();
+      // Every path into the game passes through #intro — the invite gate, the
+      // login card, and the first-run card a returning player still taps
+      // through. All of them sit on the live world, so the game's own chrome
+      // stays out until that card is dismissed.
+      document.body.classList.add('pregame');
+      setAmbient(true);
+      installDemoScene();
+      started = true;
+      startLoop();
+
+      window.addEventListener('resize', onResize);
+      window.addEventListener('orientationchange', function () { setTimeout(onResize, 200) });
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) sync() });
+
+      // Slow safety net on top of the timer-driven syncs.
+      idleTimer = setInterval(function () { if (!document.hidden && S.snap && !S.demo) sync() }, IDLE_SYNC_MS);
+
+      localiseIntro();
+      worldReady = true;
+    }
+
+    try {
+      apply(await api.farm());
+    } catch (err) {
+      // No session is not a failure — it is the login card.
+      if (err instanceof NetError && err.status === 401) { clearRetry(); return showLogin() }
+      // Anything else is the server's, and a player holding a session must not
+      // be dropped onto an intro card that cannot do anything for them.
+      return showOffline(err);
+    }
+
+    clearRetry();
+    lastLevel = snap().farm.level;
+    buildDock(); buildRail(); syncHUD(); syncBadges();
+    scheduleSync();
+    enterFromIntro();
+  } finally {
+    attempting = false;
+  }
+}
+
+/**
+ * Hand the farm over.
+ *
+ * The card that ships in the page is still there on a clean load, and a
+ * returning player taps through it. Once a failure has replaced that card
+ * there is nothing left to tap and the player has already tapped Try again, so
+ * go straight in rather than asking for a second tap on a button that no
+ * longer exists.
+ */
+function enterFromIntro() {
+  if (entered) return;
+  entered = true;
+  const go = document.getElementById('introGo') as HTMLButtonElement | null;
+  const start = function () {
+    dismissIntro();
+    // If they were away, that card comes first and starts the guide after.
+    if (!showAwayCard(maybeStartTutorial)) maybeStartTutorial();
+  };
+  if (!go) return start();
+  go.disabled = false;
+  go.addEventListener('pointerdown', function () { unlockAudio(); start() });
+}
+
 export async function boot() {
   window.__CAM = cam;
   window.__clampCam = clampCam;
@@ -529,53 +698,22 @@ export async function boot() {
   initLang();
   initAudio();
 
-  try {
-    setConfig(await api.config());
-  } catch (err) {
-    toastFallback(t('login.offline'));
-    return;
-  }
+  // This button ships in the page, so it exists before the code that makes it
+  // work does. Disabled until the farm is in hand, rather than silently
+  // swallowing the first tap.
+  const go = document.getElementById('introGo') as HTMLButtonElement | null;
+  if (go) go.disabled = true;
 
-  initWorld();
-  bootUI();
-  mountJoystick();
-  // Every path into the game passes through #intro — the invite gate, the login
-  // card, and the first-run card a returning player still taps through. All of
-  // them now sit on the live world, so the game's own chrome stays out until
-  // that card is dismissed.
-  document.body.classList.add('pregame');
-  setAmbient(true);
-  installDemoScene();
-  started = true;
-  startLoop();
+  // Coming back to the tab is exactly the moment a stuck card should try
+  // again. The widening gap above is for a tab nobody is looking at; a player
+  // who just looked at it should not be made to wait out the tail of it.
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden || !retryTimer) return;
+    clearRetry();
+    void attempt();
+  });
 
-  window.addEventListener('resize', onResize);
-  window.addEventListener('orientationchange', function () { setTimeout(onResize, 200) });
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) sync() });
-
-  // Slow safety net on top of the timer-driven syncs.
-  idleTimer = setInterval(function () { if (!document.hidden && S.snap && !S.demo) sync() }, IDLE_SYNC_MS);
-
-  localiseIntro();
-
-  try {
-    apply(await api.farm());
-    lastLevel = snap().farm.level;
-    buildDock(); buildRail(); syncHUD(); syncBadges();
-    scheduleSync();
-    const go = document.getElementById('introGo');
-    if (go) {
-      go.addEventListener('pointerdown', function () {
-        unlockAudio();
-        dismissIntro();
-        // If they were away, that card comes first and starts the guide after.
-        if (!showAwayCard(maybeStartTutorial)) maybeStartTutorial();
-      });
-    }
-  } catch (err) {
-    if (err instanceof NetError && err.status === 401) showLogin();
-    else toastFallback(t('login.offline'));
-  }
+  await attempt();
 }
 
 /** The intro card is static markup; fill it in for the current language. */
@@ -596,17 +734,18 @@ function localiseIntro() {
     : t('intro.hintReal', { n: Math.max(1, Math.round(cfg().items.wheat.growSeconds / 60)) }));
 }
 
-function toastFallback(msg) {
-  try { toast(msg, null, true) } catch (e) {
-    const intro = document.getElementById('intro');
-    if (intro) intro.querySelector('p').textContent = msg;
-  }
-}
-
 export function shutdown() {
   if (syncTimer) clearTimeout(syncTimer);
   if (idleTimer) clearInterval(idleTimer);
+  if (retryTimer) clearTimeout(retryTimer);
   stopGuide(false);
   unmountJoystick();
   started = false;
+  // The module outlives this — the dynamic import is cached — so the one-time
+  // guards have to come back down with it. Left standing, the next boot()
+  // would skip initWorld and the joystick and render nothing. React's dev
+  // StrictMode mounts the effect twice, so that next boot() is not theoretical.
+  worldReady = false;
+  entered = false;
+  attempting = false;
 }
