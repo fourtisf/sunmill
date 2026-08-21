@@ -97,21 +97,54 @@ pm2 reload ecosystem.config.js --env production 2>/dev/null \
 pm2 save
 
 echo "==> checking"
-sleep 4
-# No -f. A dependency that is down answers 503 WITH the reason in the body,
-# and -f throws that body away and exits non-zero — which read as "the api is
-# not answering" and sent whoever ran this looking for the wrong problem.
-DEEP="$(curl -sS "http://127.0.0.1:${API_PORT}/api/health?deep=1" 2>/dev/null || true)"
+# Poll, do not sleep once. The reloaded API has to boot, open its pool and
+# answer; a fixed four seconds that falls a second short reports a deploy that
+# worked as an API that is down, and sends whoever ran this to `pm2 logs` for a
+# problem that is not there.
+#
+# No -f either. A dependency that is down answers 503 WITH the reason in the
+# body, and -f throws that body away and exits non-zero — which read the same
+# way, as "the api is not answering".
+DEEP=''
+for _ in $(seq 1 20); do
+  DEEP="$(curl -sS --max-time 3 "http://127.0.0.1:${API_PORT}/api/health?deep=1" 2>/dev/null || true)"
+  [ -n "$DEEP" ] && break
+  sleep 2
+done
+
+# What to do about it, not just what it is. The API classifies the connection
+# failure it actually hit (server/src/lib/db.ts) and reports it here; these are
+# the three that happen, and each has exactly one fix.
+db_advice() {
+  case "$DEEP" in
+    *'"postgresCode":"auth_failed"'*)
+      echo "    Postgres is up and REJECTING the credentials in .env." >&2
+      echo "    Fix: sudo -u postgres psql -p <port> -c \"ALTER ROLE <user> WITH PASSWORD '<pass from .env>';\"" >&2 ;;
+    *'"postgresCode":"no_such_database"'*)
+      echo "    Postgres is up, but the database named in DATABASE_URL does not exist on it." >&2
+      echo "    Fix: create it, then npm run prisma:deploy --workspace=server" >&2 ;;
+    *'"postgresCode":"unreachable"'*)
+      echo "    Nothing is listening where DATABASE_URL points." >&2
+      echo "    Check: pg_lsclusters, and that its port matches DATABASE_URL." >&2 ;;
+    *'"redis":false'*)
+      echo "    Fix: systemctl start redis-server" >&2 ;;
+  esac
+}
+
 case "$DEEP" in
   *'"ok":true'*) echo "    api ok (postgres, redis, and the schema all check out)" ;;
-  '') echo "    api is not answering — check: pm2 logs sunmil-api" >&2; exit 1 ;;
+  '') echo "    the code is deployed and reloaded, but the api never answered on" >&2
+      echo "    127.0.0.1:${API_PORT} in 40s — so this is the api itself, not a dependency." >&2
+      echo "    Check: pm2 logs sunmil-api --err" >&2
+      exit 1 ;;
   *'"pendingMigrations"'*)
      echo "    the database is BEHIND this build: $DEEP" >&2
-     echo "    Every login and every farm write will 500 until the migrations run." >&2
+     echo "    Every login and every farm write will fail until the migrations run." >&2
      echo "    Fix: npm run prisma:deploy --workspace=server" >&2
      exit 1 ;;
   *) echo "    api is up but a dependency is not: $DEEP" >&2
-     echo "    the first login will 500 until this is fixed." >&2; exit 1 ;;
+     db_advice
+     echo "    Start farming will answer 503 until this is fixed." >&2; exit 1 ;;
 esac
 curl -fsSI "http://127.0.0.1:${WEB_PORT}/" >/dev/null && echo "    web ok"
 
