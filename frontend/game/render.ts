@@ -276,19 +276,25 @@ export function buildIsland() {
 /* ================= GROUND ================= */
 
 /**
- * The meadow surface, baked once into a repeating tile.
+ * The meadow's blades, baked once into a repeating tile.
  *
- * Drawn live it was a full-screen gradient, then one long parallelogram per
- * mown row — sixty to a hundred and twenty of them — then a pattern pass, then
- * haze. On this box that took the frame rate from 38 to 15, and a phone would
- * have felt it worse than a container does. None of it is animated, so none of
- * it belongs in the frame.
+ * Only the blades. The mown rows were in here too, and a repeating bitmap is
+ * the wrong home for them: minified to the camera's zoom with no mip chain,
+ * their hard diagonal edges alias into stair steps and each repeat samples
+ * them slightly differently, so the field breaks into blocks. Real geometry
+ * gets anti-aliased at whatever scale it is drawn, and lives in the cached
+ * layer anyway, so it costs a rebuild rather than a frame.
  *
- * It tiles because the iso lattice contains a rectangle: (2,-2) tiles is
- * exactly 256px across with no vertical shift, (2,2) is exactly 128px down
- * with none across, and both keep the mown rows' parity. So a 256x128 bitmap
- * repeats seamlessly over the plane, and the whole surface becomes one fill.
+ * Blades stay a pattern because they are noise: a thousand one-pixel strokes
+ * per rebuild buys nothing over a tile, and sub-pixel noise is what they are
+ * supposed to look like.
+ *
+ * The tile repeats because the iso lattice contains a rectangle: (2,-2) tiles
+ * is exactly 256px across with no vertical shift, and (2,2) is exactly 128px
+ * down with none across.
  */
+/** Ceiling on the mown-row loop, so an absurd viewport cannot stall a rebuild. */
+const MAX_ROWS = 320;
 const GTW = 256, GTH = 128;
 let groundPat = null;
 
@@ -298,26 +304,13 @@ function groundPattern(c) {
   tile.width = GTW; tile.height = GTH;
   const g = tile.getContext('2d');
 
-  // Cooler and a shade deeper than the farm's own grass, so the fenced field
-  // stays the brightest thing on screen and the eye still goes there first.
-  g.fillStyle = '#427A26';
-  g.fillRect(0, 0, GTW, GTH);
-
-  // The mown rows the farm is mown in, carried outward. Drawn past the tile's
-  // edges; the lattice makes what spills over land on itself.
-  g.globalAlpha = 0.07;
-  for (let y = -6; y <= 6; y++) {
-    g.fillStyle = ((y % 2) + 2) % 2 ? '#CDEE94' : '#224C0C';
-    const p0 = WD.iso(-6, y), p1 = WD.iso(10, y), p2 = WD.iso(10, y + 1), p3 = WD.iso(-6, y + 1);
-    g.beginPath();
-    g.moveTo(p0.x, p0.y); g.lineTo(p1.x, p1.y); g.lineTo(p2.x, p2.y); g.lineTo(p3.x, p3.y);
-    g.closePath(); g.fill();
-  }
-  g.globalAlpha = 1;
-
-  // Blades, and a few soft patches so the field has weather in it rather than
-  // being an even carpet. Wrapped by hand: anything drawn near an edge is
-  // drawn again on the far side, or the repeat shows as a grid.
+  // Blades only, and nothing bigger. A repeating tile may carry noise finer
+  // than itself and nothing else: soft patches the size of a good fraction of
+  // the tile used to live here, and repeating them laid a visible rectangular
+  // lattice over the whole meadow — the field read as broken into blocks.
+  // Variation at that scale belongs in world space, below, where it does not
+  // repeat. Wrapped by hand: a blade near an edge is drawn again on the far
+  // side, or the repeat shows as a seam.
   const blade = (x, y, i) => {
     const h = 2 + A.prng(i * 13) * 3.4;
     g.strokeStyle = i % 3 ? 'rgba(28,62,12,.34)' : 'rgba(178,222,112,.30)';
@@ -330,13 +323,6 @@ function groundPattern(c) {
   for (let i = 0; i < 340; i++) {
     const x = A.prng(i * 37) * GTW, y = A.prng(i * 61) * GTH;
     for (const ox of [0, -GTW, GTW]) for (const oy of [0, -GTH, GTH]) blade(x + ox, y + oy, i);
-  }
-  for (let i = 0; i < 9; i++) {
-    const x = A.prng(i * 91) * GTW, y = A.prng(i * 43) * GTH;
-    const rx = 16 + A.prng(i * 17) * 24, ry = 9 + A.prng(i * 29) * 13;
-    g.globalAlpha = 0.05;
-    g.fillStyle = i % 2 ? '#1E4A0C' : '#B7E070';
-    for (const ox of [0, -GTW, GTW]) for (const oy of [0, -GTH, GTH]) { A.ell(g, x + ox, y + oy, rx, ry); g.fill() }
   }
   groundPat = c.createPattern(tile, 'repeat');
   return groundPat;
@@ -403,11 +389,40 @@ function meadowSeed(gx, gy) {
   return (Math.imul(gx, 73856093) ^ Math.imul(gy, 19349663)) | 0;
 }
 
-function boundCells(lo, hi) {
-  const a = Math.floor(lo / MEADOW_STEP), b = Math.ceil(hi / MEADOW_STEP);
+function boundCells(lo, hi, step = MEADOW_STEP) {
+  const a = Math.floor(lo / step), b = Math.ceil(hi / step);
   if (b - a <= MEADOW_CELLS) return [a, b];
   const mid = Math.round((a + b) / 2), half = MEADOW_CELLS >> 1;
   return [mid - half, mid + half];
+}
+
+/**
+ * Weather in the field: soft light and dark patches, placed in world space so
+ * they never repeat. Same coarse grid and the same bound as the decor, which
+ * is what keeps this from becoming a cost.
+ */
+const PATCH_STEP = 9;
+
+function drawMeadowPatches(c, x0, x1, y0, y1) {
+  const [gxa, gxb] = boundCells(x0, x1, PATCH_STEP);
+  const [gya, gyb] = boundCells(y0, y1, PATCH_STEP);
+  c.save();
+  c.globalAlpha = 0.05;
+  for (let gy = gya; gy <= gyb; gy++) {
+    for (let gx = gxa; gx <= gxb; gx++) {
+      const seed = meadowSeed(gx * 31 + 5, gy * 17 + 3);
+      const roll = A.prng(seed);
+      if (roll > 0.62) continue;
+      const x = (gx + (A.prng(seed + 4) - 0.5) * 0.8) * PATCH_STEP;
+      const y = (gy + (A.prng(seed + 5) - 0.5) * 0.8) * PATCH_STEP;
+      const p = WD.iso(x, y);
+      c.fillStyle = roll < 0.31 ? '#1E4A0C' : '#B7E070';
+      A.ell(c, p.x, p.y, 90 + A.prng(seed + 6) * 150, 45 + A.prng(seed + 7) * 75,
+        A.prng(seed + 8) * 3);
+      c.fill();
+    }
+  }
+  c.restore();
 }
 
 function drawMeadowDecor(c, x0, x1, y0, y1) {
@@ -489,8 +504,28 @@ function drawGround(c, sx0, sy0, sx1, sy1) {
 
   c.save();
 
-  // Grass, mown rows and blades, in one fill. No clip: the bounding box
-  // already covers the viewport and the canvas clips what runs past it.
+  // Cooler and a shade deeper than the farm's own grass, so the fenced field
+  // stays the brightest thing on screen and the eye still goes there first.
+  c.fillStyle = '#427A26';
+  c.fillRect(left, top, wide, tall);
+
+  // The mown rows the farm is mown in, carried outward — drawn, not tiled, so
+  // their edges stay clean at any zoom. Bounded so an absurd viewport cannot
+  // turn a rebuild into a stall.
+  const rows = Math.min(MAX_ROWS, y1 - y0);
+  c.globalAlpha = 0.07;
+  for (let i = 0; i < rows; i++) {
+    const y = y0 + i;
+    c.fillStyle = ((y % 2) + 2) % 2 ? '#CDEE94' : '#224C0C';
+    const r0 = q(x0, y), r1 = q(x1, y), r2 = q(x1, y + 1), r3 = q(x0, y + 1);
+    c.beginPath();
+    c.moveTo(r0.x, r0.y); c.lineTo(r1.x, r1.y); c.lineTo(r2.x, r2.y); c.lineTo(r3.x, r3.y);
+    c.closePath(); c.fill();
+  }
+  c.globalAlpha = 1;
+
+  drawMeadowPatches(c, x0, x1, y0, y1);
+
   c.fillStyle = groundPattern(c);
   c.fillRect(left, top, wide, tall);
 
