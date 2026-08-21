@@ -540,3 +540,44 @@ body.pregame #ui > *, body.pregame #joystick{ display:none !important }
      takes the dark wordmark and the same white emboss the card's other type has. */
   filter:drop-shadow(0 3px 0 rgba(255,255,255,.55));
 }
+
+/* ── visiting somebody else's farm ───────────────────────────────────────── */
+/* The bar is the only affordance while visiting: what you can do, and the way
+   home. The dock goes because there is nothing here to plant. */
+#visitbar{
+  position:absolute;left:50%;transform:translateX(-50%);
+  bottom:calc(18px + env(safe-area-inset-bottom));
+  display:none;align-items:center;gap:10px;
+  padding:9px 12px;border-radius:16px;
+  background:var(--card);border:2px solid var(--edge);
+  box-shadow:0 4px 0 var(--edge),0 10px 22px rgba(0,0,0,.28);
+  pointer-events:auto;z-index:6;max-width:min(560px,94vw)
+}
+body.visiting #visitbar{display:flex}
+body.visiting #dock{display:none}
+#visitbar .vb-who{
+  font-weight:800;font-size:13.5px;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44vw
+}
+#visitbar .btn{padding:8px 14px;font-size:13.5px}
+
+/* A leaderboard row that goes somewhere should look like it does. */
+.lb-row.go{cursor:pointer}
+.lb-row.go:hover{background:rgba(180,140,70,.14)}
+.lb-row.go:active{transform:translateY(1px)}
+
+/* ── gifts, in the mailbox and in the send sheet ─────────────────────────── */
+.gift{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 12px;margin-bottom:8px;border-radius:14px;
+  background:rgba(255,248,232,.7);border:2px solid rgba(138,84,16,.22)
+}
+.gift-ico{width:38px;height:38px;flex:0 0 auto}
+.gift-t{flex:1;min-width:0}
+.gift-n{font-weight:800;font-size:14px;color:var(--ink)}
+.gift-w{font-size:12px;color:var(--ink-2);font-weight:600}
+.gift-note{
+  font-size:12.5px;color:var(--ink-2);font-weight:400;font-style:italic;
+  margin-top:3px;overflow-wrap:anywhere
+}
+.gift .btn{flex:0 0 auto;padding:7px 13px;font-size:13px}

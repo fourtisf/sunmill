@@ -61,6 +61,7 @@ async function sync() {
     const before = S.snap ? S.snap.farm.level : 1;
     apply(await api.farm());
     syncHUD(); syncBadges();
+    void loadGifts();
     if (snap().farm.level !== before) { buildDock(); buildRail() }
     if (S.away) showAwayCard(maybeStartTutorial);
     scheduleSync();
@@ -518,12 +519,23 @@ function showRestoreCard() {
 }
 
 
+/** Fill the mailbox badge. Never fatal — a mailbox nobody can read is a badge
+ *  that stays at zero, not a farm that will not open. */
+async function loadGifts() {
+  try {
+    S.gifts = (await api.gifts()).gifts;
+    syncBadges();
+  } catch (err) { /* try again next sync */ }
+}
+
 async function afterLogin() {
   apply(await api.farm());
   entered = true;   // the intro is being dismissed here, not by enterFromIntro
   // A brand new farm arrives here, not through attempt() — without this the
-  // service worker was only ever registered for players who came back.
+  // service worker was only ever registered for players who came back, and
+  // the mailbox badge only counted for them too.
   void initPush();
+  void loadGifts();
   lastLevel = snap().farm.level;
   buildDock(); buildRail(); syncHUD(); syncBadges();
   scheduleSync();
@@ -692,6 +704,7 @@ async function attempt() {
     buildDock(); buildRail(); syncHUD(); syncBadges();
     scheduleSync();
     void initPush();
+    void loadGifts();
     enterFromIntro();
   } finally {
     attempting = false;

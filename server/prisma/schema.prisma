@@ -27,6 +27,8 @@ model User {
   ledger    Ledger[]
   transfers HayTransfer[]
   push      PushSubscription[]
+  giftsSent Gift[]             @relation("GiftFrom")
+  giftsGot  Gift[]             @relation("GiftTo")
 
   @@index([name])
 }
@@ -264,4 +266,33 @@ model DailyTask {
 
   @@unique([farmId, day, kind])
   @@index([farmId, day])
+}
+
+// One player sending another player something out of their barn.
+//
+// A gift waits in a mailbox rather than landing in the recipient's store: the
+// store has a capacity and the sender cannot know how full it is, so dropping
+// it straight in would either overflow or silently vanish. It is claimed, and
+// the capacity is checked then. Until it is claimed the items exist in neither
+// farm — they left the sender's store when it was sent, which is what makes
+// the Ledger add up.
+model Gift {
+  id String @id @default(cuid())
+
+  fromUserId String
+  from       User   @relation("GiftFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUserId   String
+  to         User   @relation("GiftTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  item String
+  qty  Int
+
+  // A line the sender typed, if any. Escaped everywhere it is shown.
+  note String?
+
+  createdAt  DateTime  @default(now())
+  claimedAt  DateTime?
+
+  @@index([toUserId, claimedAt])
+  @@index([fromUserId, createdAt])
 }

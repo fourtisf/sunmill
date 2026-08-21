@@ -11,7 +11,8 @@ export type LedgerKind =
   | 'plant' | 'harvest' | 'craft' | 'collect' | 'feed' | 'produce'
   | 'sell' | 'buy' | 'order' | 'order_skip' | 'expand' | 'levelup'
   | 'speedup' | 'upgrade' | 'task_reward' | 'task_bonus' | 'streak'
-  | 'hay_withdraw' | 'hay_deposit';
+  | 'hay_withdraw' | 'hay_deposit'
+  | 'gift_send' | 'gift_claim';
 
 export interface LedgerInput {
   userId: string;

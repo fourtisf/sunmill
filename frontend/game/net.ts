@@ -3,8 +3,8 @@
  * the caller hands to state.apply() — the server response always wins.
  */
 import type {
-  ApiError, GameConfig, Leaderboard, MarketBoard, OrderView, Snapshot,
-  SpeedUpQuote, UpgradeBoard,
+  ApiError, GameConfig, GiftView, Leaderboard, MarketBoard, OrderView, Snapshot,
+  SpeedUpQuote, UpgradeBoard, VisitView,
 } from './types';
 
 const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '');
@@ -116,6 +116,13 @@ export const api = {
   /* daily loop */
   claimTask: (kind: string) => request<Snapshot>('POST', '/api/tasks/claim', { kind }),
   claimStreak: () => request<Snapshot>('POST', '/api/daily/claim', {}),
+
+  /* other people */
+  visit: (userId: string) => request<VisitView>('GET', '/api/visit/' + encodeURIComponent(userId)),
+  gifts: () => request<{ gifts: GiftView[] }>('GET', '/api/gifts'),
+  sendGift: (toUserId: string, item: string, qty: number, note?: string) =>
+    request<Snapshot>('POST', '/api/gift', { toUserId, item, qty, ...(note ? { note } : {}) }),
+  claimGift: (giftId: string) => request<Snapshot>('POST', '/api/gifts/claim', { giftId }),
 
   /* being told the farm is ready */
   subscribePush: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>

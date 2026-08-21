@@ -22,6 +22,7 @@ import orderRoutes from './routes/orders';
 import penRoutes from './routes/pen';
 import pushRoutes from './routes/push';
 import profileRoutes from './routes/profile';
+import socialRoutes from './routes/social';
 import speedupRoutes from './routes/speedup';
 import upgradeRoutes from './routes/upgrade';
 
@@ -112,6 +113,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(orderRoutes);
   await app.register(marketRoutes);
   await app.register(expandRoutes);
+  await app.register(socialRoutes);
   await app.register(speedupRoutes);
   await app.register(upgradeRoutes);
   await app.register(dailyRoutes);

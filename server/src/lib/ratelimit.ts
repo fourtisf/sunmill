@@ -26,6 +26,10 @@ export const LIMITS = {
   // Guessing a short invite code is the one thing here worth brute-forcing,
   // so this bucket is an order of magnitude tighter than the auth ones.
   invite: { points: 10, windowSec: 600 },
+  // Sending is the one social action that moves goods between farms, so it is
+  // the one worth a bucket of its own: generous for a person being generous,
+  // useless for anyone trying to funnel a hundred farms into one.
+  gift: { points: 20, windowSec: 3600 },
 } satisfies Record<string, Limit>;
 
 export async function consume(userId: string, bucket: string, limit: Limit): Promise<void> {

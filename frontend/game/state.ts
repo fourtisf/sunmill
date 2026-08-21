@@ -18,6 +18,19 @@ export const S = {
   snap: null as Snapshot | null,
   /** True while `snap` is the decorative pre-login scene, not a real farm. */
   demo: false,
+  /**
+   * Whose farm is on screen, when it is not yours. Every action refuses while
+   * this is set — one flag in one place beats trusting every button to check.
+   */
+  visiting: null as { id: string; name: string | null; farmName: string | null } | null,
+  /** The mailbox, refreshed when the panel opens and after a claim. */
+  gifts: null as import('./types').GiftView[] | null,
+  /**
+   * Our own farm, parked while someone else's is on screen. Held rather than
+   * refetched so leaving is instant; the server is asked again on the way home
+   * anyway, because a visit is long enough for a crop to have ripened.
+   */
+  mine: null as Snapshot | null,
   /** serverTime − client clock, so clock skew never affects a progress bar. */
   serverOffsetMs: 0,
   /** Client-only view state. */

@@ -194,6 +194,8 @@ export interface UpgradeBoard {
 }
 
 export interface LeaderboardRow {
+  /** Present on other players' rows: what /api/visit takes. */
+  id?: string;
   rank: number;
   name: string | null;
   farmName: string | null;
@@ -262,4 +264,27 @@ export interface ApiError {
   error: string;
   message: string;
   details?: unknown;
+}
+
+/** Somebody else's farm, as a visitor is allowed to see it. */
+export interface VisitView {
+  serverTime: string;
+  host: { id: string; name: string | null; farmName: string | null };
+  farm: {
+    level: number;
+    fieldsOpen: number;
+    tiles: Snapshot['farm']['tiles'];
+    machines: Snapshot['farm']['machines'];
+    pens: Snapshot['farm']['pens'];
+  };
+}
+
+/** One thing waiting in the mailbox. */
+export interface GiftView {
+  id: string;
+  item: string;
+  qty: number;
+  note: string | null;
+  createdAt: string;
+  from: { id: string; name: string | null };
 }

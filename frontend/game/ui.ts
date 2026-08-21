@@ -65,6 +65,9 @@ const haySvg = (px) => `<svg viewBox="0 0 64 64" style="width:${px}px;height:${p
  */
 async function act(run, sound) {
   if (S.busy) return null;
+  // Visiting is looking, not playing. Gated here rather than on each button:
+  // there are two dozen of them and the next one added would forget.
+  if (S.visiting) { sfx.deny(); toast(t('visit.readonly'), null, true); return null }
   S.busy = true;
   try {
     const snapshot = await run();
@@ -174,6 +177,9 @@ export function buildDock() {
 /* ================= SIDE RAIL ================= */
 
 const RAIL_ICONS = {
+  mail: '<svg viewBox="0 0 40 40"><rect x="5" y="12" width="30" height="20" rx="2.5" fill="#E0C68E" stroke="#8A5410" stroke-width="2"/>'
+    + '<path d="M6 14 L20 24 L34 14" fill="none" stroke="#8A5410" stroke-width="2" stroke-linejoin="round"/>'
+    + '<path d="M31 8 v8 M27 12 h8" stroke="#C4402E" stroke-width="2.6" stroke-linecap="round"/></svg>',
   orders: '<svg viewBox="0 0 40 40"><rect x="4" y="12" width="22" height="16" rx="2" fill="#E0C68E" stroke="#8A5410" stroke-width="2"/>'
     + '<path d="M26 16 h6 l4 5 v7 h-10 Z" fill="#C4402E" stroke="#7E1E12" stroke-width="2"/>'
     + '<circle cx="11" cy="30" r="3.4" fill="#3A3128" stroke="#000" stroke-width="1.5"/>'
@@ -200,6 +206,7 @@ export function buildRail() {
   r.appendChild(railBtn('tasks', RAIL_ICONS.tasks, t('rail.tasks')));
   r.appendChild(railBtn('storage', RAIL_ICONS.storage, t('rail.storage')));
   r.appendChild(railBtn('build', RAIL_ICONS.build, t('rail.expand')));
+  r.appendChild(railBtn('mail', RAIL_ICONS.mail, t('rail.mail')));
   syncBadges();
 }
 function railBtn(id, svg, tag) {
@@ -211,6 +218,7 @@ function railBtn(id, svg, tag) {
 }
 export function syncBadges() {
   if (!S.snap) return;
+  badge('mail', (S.gifts || []).length);
   badge('orders', snap().orders.filter(function (o) { return o.canFill }).length);
   // Anything claimable, plus the streak if today's reward is still waiting.
   const claimable = tasks().filter(function (task) { return task.done && !task.claimed }).length;
@@ -230,6 +238,7 @@ function openPanel(kind) {
   if (kind === 'tasks') return renderTasks();
   if (kind === 'storage') return renderStorage();
   if (kind === 'build') return openBuild();
+  if (kind === 'mail') return renderMailbox();
 }
 
 function frame(title, sub, bodyFill) {
@@ -759,6 +768,11 @@ export async function renderProfile() {
           + '<div class="lb-name">' + escape(row.name || '—')
           + (row.farmName ? ' <span class="lb-farm">' + escape(row.farmName) + '</span>' : '') + '</div>'
           + '<div class="lb-lvl">' + t('common.level', { n: row.level }) + '</div>';
+        // The board used to be a list of names that led nowhere.
+        if (row.id && !row.you) {
+          line.classList.add('go');
+          line.addEventListener('pointerdown', function () { sfx.tap(); visitFarm(row.id) });
+        }
         body.appendChild(line);
       });
       if (board.you && !board.top.some(function (r) { return r.you })) {
@@ -1072,6 +1086,166 @@ function escape(text) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+
+/* ================= OTHER PEOPLE ================= */
+
+/**
+ * The mailbox. Gifts wait here rather than landing in the store, because the
+ * sender cannot know how full it is — so the capacity check happens on claim,
+ * and a gift that does not fit stays put instead of being partly taken.
+ */
+export async function renderMailbox() {
+  try { S.gifts = (await api.gifts()).gifts } catch (e) { S.gifts = S.gifts || [] }
+  syncBadges();
+
+  frame(t('mail.title'), t('mail.sub'), function (body) {
+    if (!S.gifts.length) {
+      body.appendChild(banner(t('mail.empty.big'), t('mail.empty.sm')));
+      return;
+    }
+    S.gifts.forEach(function (gift) {
+      const row = el('div', 'gift');
+      const cv = document.createElement('canvas');
+      cv.width = 64; cv.height = 64; cv.className = 'gift-ico';
+      const g = cv.getContext('2d');
+      if (ICON[gift.item]) ICON[gift.item](g);
+      row.appendChild(cv);
+
+      const text = el('div', 'gift-t');
+      text.appendChild(el('div', 'gift-n', escape(itemName(gift.item)) + ' &times;' + gift.qty));
+      text.appendChild(el('div', 'gift-w',
+        t('mail.from', { who: escape(gift.from.name || t('board.someone')) })));
+      if (gift.note) text.appendChild(el('div', 'gift-note', escape(gift.note)));
+      row.appendChild(text);
+
+      const claim = el('button', 'btn gold', t('mail.claim'));
+      claim.addEventListener('pointerdown', async function () {
+        claim.disabled = true;
+        const done = await act(function () { return api.claimGift(gift.id) }, sfx.coin);
+        if (done) { S.gifts = S.gifts.filter(function (x) { return x.id !== gift.id }) }
+        syncBadges();
+        renderMailbox();
+      });
+      row.appendChild(claim);
+      body.appendChild(row);
+    });
+  });
+}
+
+/**
+ * Go and look at somebody else's farm.
+ *
+ * Their snapshot is dressed as one of ours and handed to the same renderer —
+ * the world already knows how to draw a farm, and teaching it a second way to
+ * would be two things to keep in step. Everything they own that is not on the
+ * ground is left at zero, because the server never sent it.
+ */
+export async function visitFarm(userId) {
+  let view;
+  try { view = await api.visit(userId) } catch (e) {
+    toast(e instanceof NetError ? errorText(e.code, e.message) : t('login.failed'), null, true);
+    return;
+  }
+  if (!S.mine) S.mine = S.snap;          // to come home to
+  closeModal();
+
+  const blank = JSON.parse(JSON.stringify(S.mine));
+  blank.serverTime = view.serverTime;
+  blank.player = { name: view.host.name, farmName: view.host.farmName };
+  blank.farm.level = view.farm.level;
+  blank.farm.fieldsOpen = view.farm.fieldsOpen;
+  blank.farm.tiles = view.farm.tiles;
+  blank.farm.machines = view.farm.machines;
+  blank.farm.pens = view.farm.pens;
+  blank.orders = [];
+  blank.tasks = [];
+  apply(blank);
+  S.visiting = view.host;
+
+  buildDock(); buildRail(); syncHUD(); syncBadges();
+  showVisitBar();
+}
+
+/** The one way back, and the only thing to do while you are there. */
+function showVisitBar() {
+  let bar = $('#visitbar');
+  if (!bar) {
+    bar = el('div', null); bar.id = 'visitbar';
+    document.getElementById('ui').appendChild(bar);
+  }
+  const who = S.visiting.farmName || S.visiting.name || t('board.someone');
+  bar.innerHTML = '';
+  bar.appendChild(el('div', 'vb-who', t('visit.at', { who: escape(who) })));
+  const gift = el('button', 'btn gold', t('visit.gift'));
+  gift.addEventListener('pointerdown', function () { sfx.tap(); openGiftSheet() });
+  bar.appendChild(gift);
+  const back = el('button', 'btn wood', t('visit.back'));
+  back.addEventListener('pointerdown', function () { sfx.tap(); leaveFarm() });
+  bar.appendChild(back);
+  document.body.classList.add('visiting');
+}
+
+/** Home. The farm comes back from the server, not from the copy we kept. */
+export async function leaveFarm() {
+  const bar = $('#visitbar');
+  if (bar) bar.remove();
+  document.body.classList.remove('visiting');
+  S.visiting = null;
+  const mine = S.mine;
+  S.mine = null;
+  if (mine) apply(mine);
+  try { apply(await api.farm()) } catch (e) { /* the copy will do until the next sync */ }
+  buildDock(); buildRail(); syncHUD(); syncBadges();
+}
+
+/** Pick something out of the barn to leave behind. */
+function openGiftSheet() {
+  const host = S.visiting;
+  const mine = S.mine ? S.mine.farm.inventory : {};
+  const have = Object.keys(mine).filter(function (id) { return mine[id] > 0 });
+
+  frame(t('gift.title'), t('gift.sub', { who: escape(host.name || t('board.someone')) }), function (body) {
+    if (!have.length) {
+      body.appendChild(banner(t('gift.empty.big'), t('gift.empty.sm')));
+      return;
+    }
+    have.forEach(function (id) {
+      const row = el('div', 'gift');
+      const cv = document.createElement('canvas');
+      cv.width = 64; cv.height = 64; cv.className = 'gift-ico';
+      if (ICON[id]) ICON[id](cv.getContext('2d'));
+      row.appendChild(cv);
+      const text = el('div', 'gift-t');
+      text.appendChild(el('div', 'gift-n', escape(itemName(id))));
+      text.appendChild(el('div', 'gift-w', t('gift.have', { n: mine[id] })));
+      row.appendChild(text);
+
+      const send = el('button', 'btn gold', t('gift.send'));
+      send.addEventListener('pointerdown', async function () {
+        send.disabled = true;
+        const qty = Math.min(GIFT_QTY, mine[id]);
+        try {
+          // Sent from OUR farm, so the visiting gate does not apply and the
+          // response is our snapshot, not the host's — it is kept for coming
+          // home rather than drawn now.
+          S.mine = await api.sendGift(host.id, id, qty);
+          toast(t('gift.sent', { n: qty, item: itemName(id) }), ICON[id], false);
+          sfx.coin();
+          closeModal();
+        } catch (err) {
+          sfx.deny();
+          toast(err instanceof NetError ? errorText(err.code, err.message) : t('login.failed'), null, true);
+          send.disabled = false;
+        }
+      });
+      row.appendChild(send);
+      body.appendChild(row);
+    });
+  });
+}
+
+/** How many go in one present. Small on purpose: a gift, not a transfer. */
+const GIFT_QTY = 3;
 
 /* ================= LEVEL UP ================= */
 

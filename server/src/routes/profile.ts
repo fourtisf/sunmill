@@ -117,6 +117,9 @@ export default async function profileRoutes(app: FastifyInstance) {
     return {
       top: top.map((f, i) => ({
         rank: i + 1,
+        // So a row can be tapped and visited. It is the same id the visit
+        // route takes, and it is already public to any signed-in player.
+        id: f.user.id,
         name: f.user.name,
         farmName: f.name,
         level: f.level,
