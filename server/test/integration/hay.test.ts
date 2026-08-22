@@ -241,6 +241,30 @@ describe('withdraw', () => {
     expect(await hayOf(p)).toBe('152.00');
   });
 
+  maybe('two withdrawals posted together cannot both pass the same cap', async () => {
+    /**
+     * The cap used to be counted before the transaction opened. Fired
+     * together, both requests read the same total, both found room under 50,
+     * and both went through — 60 out against a cap of 50. The balance check
+     * did not catch it because the player could afford both.
+     */
+    const p = await walletPlayer('200');
+    const both = await Promise.all([
+      call(p, 'POST', '/api/hay/withdraw', { amount: '30.00' }),
+      call(p, 'POST', '/api/hay/withdraw', { amount: '30.00' }),
+    ]);
+
+    const ok = both.filter((r) => r.statusCode === 200);
+    expect(ok).toHaveLength(1);
+    const refused = both.find((r) => r.statusCode !== 200);
+    expect(refused?.json().message).toContain('Daily withdrawal cap');
+
+    // And the books agree: one debit, not two.
+    const status = await call(p, 'GET', '/api/hay/status');
+    expect(status.json().withdrawnToday).toBe('30.00');
+    expect(await hayOf(p)).toBe('170.00');
+  });
+
   maybe('yesterday\'s withdrawals do not count against today', async () => {
     const p = await walletPlayer('200');
     expect((await call(p, 'POST', '/api/hay/withdraw', { amount: '24.00' })).statusCode).toBe(200);

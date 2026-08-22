@@ -18,6 +18,7 @@ import { sendHay } from '../lib/chain';
 import { writeLedger } from '../lib/ledger';
 import { decimal, hayToUnits, unitsToHay } from '../lib/money';
 import { LIMITS, rateLimit } from '../lib/ratelimit';
+import { secretMatches } from '../lib/secrets';
 
 const releaseBody = z.object({ transferId: z.string().min(1).max(64) }).strict();
 const rejectBody = z.object({
@@ -31,7 +32,7 @@ async function requireAdmin(req: FastifyRequest): Promise<string> {
 
   const header = req.headers['x-admin-token'];
   const token = Array.isArray(header) ? header[0] : header;
-  if (!token || token !== env.ADMIN_TOKEN) throw errors.forbidden('Admin token required');
+  if (!secretMatches(token, env.ADMIN_TOKEN)) throw errors.forbidden('Admin token required');
 
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
   if (!user?.isAdmin) throw errors.forbidden('Not an operator');

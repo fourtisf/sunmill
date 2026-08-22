@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { env, onChainReady } from '../env';
 import { requireAuth } from '../auth/plugin';
 import { prisma } from '../lib/db';
+import type { Tx } from '../lib/db';
 import { errors } from '../lib/errors';
 import { sendHay, verifyDeposit } from '../lib/chain';
 import { writeLedger } from '../lib/ledger';
@@ -37,9 +38,9 @@ function requireFlag(): void {
 }
 
 /** Game hay already withdrawn in the last 24h, in hundredths. */
-async function withdrawnToday(userId: string): Promise<bigint> {
+async function withdrawnToday(userId: string, db: Tx | typeof prisma = prisma): Promise<bigint> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const rows = await prisma.hayTransfer.findMany({
+  const rows = await db.hayTransfer.findMany({
     where: {
       userId, direction: 'withdraw', createdAt: { gte: since },
       status: { in: ['pending', 'review', 'sent', 'confirmed'] },
@@ -82,11 +83,6 @@ export default async function hayRoutes(app: FastifyInstance) {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { wallet: true } });
     if (!user?.wallet) throw errors.badRequest('Connect a wallet before withdrawing');
 
-    const spent = await withdrawnToday(userId);
-    if (spent + units > hayToUnits(String(env.HAY_WITHDRAW_DAILY_CAP))) {
-      throw errors.badRequest('Daily withdrawal cap reached');
-    }
-
     const needsReview = units >= hayToUnits(String(env.HAY_WITHDRAW_REVIEW_THRESHOLD));
 
     // Debit + audit atomically. The transfer row is the thing the chain job
@@ -94,6 +90,23 @@ export default async function hayRoutes(app: FastifyInstance) {
     const { transferId, snapshot } = await (async () => {
       let transferId = '';
       const snap = await runAction(userId, async (ctx) => {
+        /**
+         * The daily cap is a sum over the very rows this transaction is about
+         * to add to, so it has to be counted here — and under one lock.
+         *
+         * Read outside the transaction, as it was, two withdrawals posted
+         * together both saw the same total, both found room under the cap, and
+         * both went through: 60 $HAY out against a cap of 50. The balance
+         * check below never noticed, because the player could afford both.
+         * Row-locking the user first makes concurrent withdrawals queue, so
+         * the second one counts the first.
+         */
+        await ctx.tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
+        const spent = await withdrawnToday(userId, ctx.tx);
+        if (spent + units > hayToUnits(String(env.HAY_WITHDRAW_DAILY_CAP))) {
+          throw errors.badRequest('Daily withdrawal cap reached');
+        }
+
         if (hayToUnits(ctx.state.farm.hay) < units) throw errors.notEnoughHay();
         addHay(ctx, `-${amount}`);
         await saveFarm(ctx);
