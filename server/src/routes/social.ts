@@ -46,7 +46,7 @@ export default async function socialRoutes(app: FastifyInstance) {
     preHandler: rateLimit('visit', LIMITS.read),
   }, async (req) => {
     await requireAuth(req);
-    const { userId } = z.object({ userId: z.string().min(1).max(64) }).parse(req.params);
+    const { userId } = z.object({ userId: z.string().min(1).max(64) }).strict().parse(req.params);
 
     const host = await prisma.user.findUnique({
       where: { id: userId },

@@ -413,6 +413,10 @@ body.pregame #ui > *, body.pregame #joystick{ display:none !important }
 }
 .task.done{border-color:rgba(93,174,46,.55); background:rgba(226,246,213,.7)}
 .task.claimed{opacity:.55}
+/* An unfinished task is a door into its guide, so it has to look like one. */
+.task.go{cursor:pointer}
+.task.go:active{transform:scale(.985)}
+@media (hover:hover){.task.go:hover{border-color:rgba(132,81,42,.45); background:rgba(255,255,255,.75)}}
 .task .t-body{flex:1; min-width:0}
 .task .t-title{font-weight:600; font-size:15px; color:#5C3618}
 .task .t-bar{height:8px; border-radius:5px; background:rgba(0,0,0,.14); overflow:hidden; margin-top:7px}

@@ -189,6 +189,14 @@ const EN: Dict = {
   'guide.collect_pen': 'Collect from an animal that is ready.',
   'guide.deliver': 'Open Orders and deliver one you can fill.',
   'guide.sell': 'Open the Market, switch to Sell, and sell some surplus.',
+  // Said when the goal is not reachable yet: what to do first, and what to
+  // wait on. Without these the guide asked for the impossible.
+  'guide.harvest.plant': 'Nothing is growing yet — pick a seed and plant first.',
+  'guide.harvest.wait': 'Your crops are still growing. Wait, or tap one to speed it up.',
+  'guide.collect_machine.queue': 'Nothing is waiting yet — open a machine and start a job first.',
+  'guide.collect_machine.wait': 'A job is running. Wait for it, or tap the machine to speed it up.',
+  'guide.collect_pen.feed': 'Nothing is ready yet — open a pen and feed the animals first.',
+  'guide.collect_pen.wait': 'They are still working on it. Give them a moment.',
 
   /* intro + login */
   'intro.tagline': 'Farm & Craft Tycoon',
@@ -512,6 +520,12 @@ const ID: Dict = {
   'guide.collect_pen': 'Ambil hasil dari hewan yang sudah siap.',
   'guide.deliver': 'Buka Pesanan dan antar satu yang bisa kamu penuhi.',
   'guide.sell': 'Buka Pasar, pindah ke tab Jual, lalu jual kelebihanmu.',
+  'guide.harvest.plant': 'Belum ada yang ditanam — pilih benih dan tanam dulu.',
+  'guide.harvest.wait': 'Tanamanmu masih tumbuh. Tunggu, atau sentuh untuk mempercepat.',
+  'guide.collect_machine.queue': 'Belum ada hasil — buka mesin dan mulai satu pekerjaan dulu.',
+  'guide.collect_machine.wait': 'Ada pekerjaan yang sedang jalan. Tunggu, atau sentuh mesinnya untuk mempercepat.',
+  'guide.collect_pen.feed': 'Belum ada yang siap — buka kandang dan beri makan hewannya dulu.',
+  'guide.collect_pen.wait': 'Hewannya masih mengerjakan. Tunggu sebentar.',
 
   'intro.tagline': 'Tani & Olah',
   'intro.blurb': 'Peternakan rantai produksi di Solana. Tanam, beri makan hewan, jalankan mesin, isi truk.',

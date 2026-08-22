@@ -464,6 +464,9 @@ export function renderTasks() {
 
     list.forEach(function (task) {
       const row = el('div', 'task' + (task.claimed ? ' claimed' : task.done ? ' done' : ''));
+      // A stable handle for the smoke test, which otherwise has to match rows
+      // by their translated title and picks the wrong one.
+      row.dataset.kind = task.kind;
       const pct = Math.min(100, (task.progress / task.target) * 100);
       const bodyEl = el('div', 't-body');
       bodyEl.innerHTML =
@@ -484,10 +487,11 @@ export function renderTasks() {
         });
         actions.appendChild(claim);
       } else {
-        // "Show me" hands the task to the guide, which then walks the player
-        // through it until it is actually finished.
-        const guide = el('button', 'btn wood', t('tasks.guideMe'));
-        guide.addEventListener('pointerdown', function () {
+        // Hand the task to the guide, which then walks the player through it
+        // until it is actually finished. The whole row does this, not only the
+        // button: a task a player taps is a task they want help with, and a
+        // row that looks tappable and does nothing reads as broken.
+        const begin = function () {
           sfx.tap();
           closeModal();
           startGuide({
@@ -495,7 +499,12 @@ export function renderTasks() {
             steps: taskGuideSteps(task.kind),
             onFinish: function (completed) { if (completed) renderTasks() },
           });
-        });
+        };
+        row.classList.add('go');
+        row.addEventListener('pointerdown', begin);
+        const guide = el('button', 'btn wood', t('tasks.guideMe'));
+        // The row already listens, so let its handler do the work once.
+        guide.addEventListener('pointerdown', function (e) { e.stopPropagation() });
         actions.appendChild(guide);
       }
       row.appendChild(actions);

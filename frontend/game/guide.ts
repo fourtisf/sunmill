@@ -207,6 +207,12 @@ const pointAt = {
     const view = (S.snap?.farm.machines ?? []).find((m) => m.machine === h.ref);
     return Boolean(view && Object.keys(view.done).length);
   }),
+  /** A machine part-way through a job — something to wait on, not to tap. */
+  machineWorking: worldTarget((h) => {
+    if (h.kind !== 'machine') return false;
+    const view = (S.snap?.farm.machines ?? []).find((m) => m.machine === h.ref);
+    return Boolean(view && view.jobs.length);
+  }),
 };
 
 /* ================= THE TUTORIAL ================= */
@@ -268,49 +274,94 @@ export function tutorialSteps(): GuideStep[] {
 
 /* ================= GUIDED DAILY TASKS ================= */
 
-/**
- * Where to point for each task kind. World targets resolve against the live
- * hit boxes, so the spotlight lands on the actual crop or machine.
- */
-const TASK_TARGET: Record<string, GuideStep['target']> = {
-  plant: '#dockInner .seed',
-  harvest: pointAt.ripePlot,
-  craft: pointAt.machine,
-  collect_machine: pointAt.machineWithGoods,
-  feed: pointAt.pen,
-  collect_pen: pointAt.readyAnimal,
-  deliver: '#rb_orders',
-  sell: '#rb_market',
-};
+/** Is there an open pen holding an animal in this state? */
+function anyAnimal(state: 'hungry' | 'full' | 'ready'): boolean {
+  return (S.snap?.farm.pens ?? []).some(
+    (pen) => pen.open && pen.animals.some((animal) => animal.state === state),
+  );
+}
+
+/** Is there an open machine matching this? */
+function anyMachine(match: (m: { jobs: unknown[]; done: Record<string, number> }) => boolean): boolean {
+  return (S.snap?.farm.machines ?? []).some((m) => m.open && match(m));
+}
+
+/** What to say, and where to point while saying it. */
+interface Cue {
+  key: string;
+  target: GuideStep['target'];
+}
 
 /**
- * When the thing to point at does not exist yet — no ripe crop, no machine
- * with goods — point at what gets them there instead.
+ * The cue for a task, decided fresh from the farm on every poll.
+ *
+ * A task step is not one fixed instruction. "Collect from an animal that is
+ * ready" is useless advice when no animal is ready — and the arrow used to
+ * point at the Tasks button the player had just come from, which is the one
+ * place on screen that cannot help them. What that player needs is to be sent
+ * to the pen to feed one.
+ *
+ * So each kind declares its chain: the goal, what to wait on, and what to do
+ * when there is nothing to wait on yet. The first link that is not satisfied
+ * is the one shown, which is what makes the guide hold the player's hand all
+ * the way to done rather than only over the last step.
  */
-const TASK_FALLBACK: Record<string, string> = {
-  harvest: '#dockInner .seed',
-  collect_machine: '#rb_tasks',
-  collect_pen: '#rb_tasks',
+const TASK_CUE: Record<string, () => Cue> = {
+  plant: () => ({ key: 'guide.plant', target: '#dockInner .seed' }),
+
+  harvest: () => {
+    if (anyTile((tile) => Boolean(tile.crop) && tile.ready)) {
+      return { key: 'guide.harvest', target: pointAt.ripePlot };
+    }
+    if (anyTile((tile) => Boolean(tile.crop))) {
+      return { key: 'guide.harvest.wait', target: pointAt.growingPlot };
+    }
+    return { key: 'guide.harvest.plant', target: '#dockInner .seed' };
+  },
+
+  craft: () => ({ key: 'guide.craft', target: pointAt.machine }),
+
+  collect_machine: () => {
+    if (anyMachine((m) => Object.keys(m.done).length > 0)) {
+      return { key: 'guide.collect_machine', target: pointAt.machineWithGoods };
+    }
+    if (anyMachine((m) => m.jobs.length > 0)) {
+      return { key: 'guide.collect_machine.wait', target: pointAt.machineWorking };
+    }
+    return { key: 'guide.collect_machine.queue', target: pointAt.machine };
+  },
+
+  feed: () => ({ key: 'guide.feed', target: pointAt.pen }),
+
+  collect_pen: () => {
+    if (anyAnimal('ready')) return { key: 'guide.collect_pen', target: pointAt.readyAnimal };
+    if (anyAnimal('full')) return { key: 'guide.collect_pen.wait', target: pointAt.pen };
+    return { key: 'guide.collect_pen.feed', target: pointAt.pen };
+  },
+
+  deliver: () => ({ key: 'guide.deliver', target: '#rb_orders' }),
+  sell: () => ({ key: 'guide.sell', target: '#rb_market' }),
 };
 
 /**
  * Guide the player through a daily task, all the way to done. The step repeats
  * with a live count rather than ticking off once — "3 / 8 planted" is the
  * useful thing to see, and it keeps guiding until the task is actually
- * complete, which is what was asked for.
+ * complete.
  */
 export function taskGuideSteps(kind: string): GuideStep[] {
   const progressOf = () => tasks().find((task) => task.kind === kind);
-  const primary = TASK_TARGET[kind];
-  const target: GuideStep['target'] = typeof primary === 'function'
-    ? () => primary() ?? (TASK_FALLBACK[kind] ? domRect(TASK_FALLBACK[kind]) : null)
-    : primary;
+  const cueFor = (): Cue => TASK_CUE[kind]?.() ?? { key: `guide.${kind}`, target: undefined };
 
   return [
     {
       // Live count, so the player can see the task filling up as they work.
-      text: () => `${t(`guide.${kind}`)}  ${taskProgressLabel(kind)}`,
-      target,
+      text: () => `${t(cueFor().key)}  ${taskProgressLabel(kind)}`,
+      target: () => {
+        const target = cueFor().target;
+        if (!target) return null;
+        return typeof target === 'function' ? target() : domRect(target);
+      },
       done: () => Boolean(progressOf()?.done),
     },
     {
